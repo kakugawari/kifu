@@ -56,12 +56,12 @@ sg=M.suggest(st,{prevTo:null,ply:0,bookSet:new Set(M.bookNext([])),limit:3});
 top=sg.map(m=>M.moveInfo(st,m,null).disp);
 ok(top.includes("７六歩"), "初手の3択に▲７六歩: "+JSON.stringify(top));
 
-// --- 8. suggest: 駒でしぼる ---
+// --- 8. suggest: 同じ駒ばかり並ばない（ひとつの駒から2手まで） ---
 st=M.initState();
-sg=M.suggest(st,{prevTo:null,ply:0,pieceFilter:"GI",limit:9});
-ok(sg.length===4 && sg.every(m=>st.b[m.from.y][m.from.x].t==="GI"), "銀でしぼると4手: "+sg.length);
-sg=M.suggest(st,{prevTo:null,ply:0,pieceFilter:"KE",limit:9});
-ok(sg.length===0, "初期局面の桂は動けない(ボタンは無効になる): "+sg.length);
+sg=M.suggest(st,{prevTo:null,ply:0,limit:12});
+const byFrom={};
+for(const m of sg){ const k=m.from.x+","+m.from.y; byFrom[k]=(byFrom[k]||0)+1; }
+ok(Object.values(byFrom).every(v=>v<=2), "候補は1つの駒から2手まで: "+JSON.stringify(byFrom));
 
 // --- 9. suggest: あとの手との辻褄（穴うめ） ---
 // 局面: 初期。実際の3手目は ▲2二角成、4手目 △同銀 が入っているとき、
