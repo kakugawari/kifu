@@ -250,8 +250,8 @@ canvas{display:block;touch-action:manipulation}
 </div>
 
 <div class="modal" id="promo"><div class="sheet2">
-  <p id="promoText">成りますか</p>
-  <div class="row"><button class="p" id="pYes">成った</button><button id="pNo">成らない</button></div>
+  <p id="promoText">成りますか？</p>
+  <div class="row"><button class="p" id="pYes">成る</button><button id="pNo">成らない</button></div>
 </div></div>
 <div class="modal" id="ask"><div class="sheet2">
   <p id="askText"></p>
@@ -892,7 +892,7 @@ cv.addEventListener("click",e=>{
       if(must) return commit({from:sel,to:d,promote:true});
       if(can){
         hideToast(); pending={from:sel,to:d};
-        $("promoText").textContent=NM[p.t]+"、成った？";
+        $("promoText").textContent=NM[p.t]+"、成りますか？";
         $("promo").classList.add("on"); return;
       }
       return commit({from:sel,to:d,promote:false});
