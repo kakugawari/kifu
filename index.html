@@ -178,6 +178,12 @@ canvas{display:block;touch-action:manipulation}
 .gl-row.cur .gl-d{font-weight:700}
 .gl-row.cur .gl-d::before{content:"●";color:var(--shu);font-size:9px;vertical-align:2px;margin-right:5px}
 .gl-del{font-family:inherit;font-size:11px;padding:6px 10px;border:1px solid var(--shu);background:transparent;color:var(--shu);border-radius:2px;flex:0 0 auto}
+.gl-tag{
+  font-size:10px;padding:2px 6px 3px;border-radius:2px;letter-spacing:.04em;
+  font-family:system-ui,sans-serif;white-space:nowrap;
+}
+.gl-tag.done {background:rgba(35,29,22,.12); color:var(--sumi)}
+.gl-tag.stale{background:rgba(178,58,46,.14);color:var(--shu)}
 .gl-name{font-family:inherit;font-size:11px;padding:6px 10px;border:1px solid var(--koma-e);background:transparent;color:var(--sumi);border-radius:2px;flex:0 0 auto}
 /* 名前を入れる窓。16px より小さいと iOS が勝手に拡大するので下げない */
 .nm-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;text-align:left}
@@ -984,6 +990,13 @@ function renderGameList(){
     const holes=g.moves.filter(m=>m.k==="hole").length;
     s.textContent=[fmtDate(g.created),(g.mySide===0?"自分＝先手":"自分＝後手"),
                    g.moves.length+"手",res,holes?"未記入"+holes:""].filter(Boolean).join("　");
+    const ex=exportState(g);
+    if(ex!=="none"){
+      const tag=document.createElement("span");
+      tag.className="gl-tag "+ex;
+      tag.textContent = ex==="done" ? "KIF保存済" : "KIF保存後に変更";
+      s.appendChild(document.createTextNode("　")); s.appendChild(tag);
+    }
     open.appendChild(d); open.appendChild(s);
     open.onclick=()=>openGame(g.id);
     row.appendChild(open);
@@ -1075,6 +1088,7 @@ async function doExport(after){
     const file=new File([text],name,{type:"text/plain"});
     if(navigator.canShare&&navigator.canShare({files:[file]})){
       await navigator.share({files:[file],title:"棋譜"});
+      markExported();
       toast("保存しました");
       if(after)after();
       return;
@@ -1090,6 +1104,7 @@ async function doExport(after){
   setTimeout(()=>URL.revokeObjectURL(url),4000);
   let copied=false;
   try{ if(navigator.clipboard){ await navigator.clipboard.writeText(text); copied=true; } }catch(e){}
+  markExported();
   toast(copied? "KIFで保存しました（本文のコピーも完了）" : "KIFで保存しました");
   if(after)after();
 }
@@ -1102,11 +1117,41 @@ $("bKif").onclick=()=>{
 };
 /* ==================== 保存・音 ==================== */
 const KEY="kifu-note-v3";
+/* 棋譜の中身を短い印にする（FNV-1a）。KIFに出したときの中身と
+   今の中身が同じかを比べるのに使う。開いただけでは変わらない。 */
+function sigOf(ms,side,res){
+  let str=side+"|"+(res||"")+"|";
+  for(const m of ms){
+    str += m.k==="hole" ? "h,"
+         : (m.drop? "d"+m.drop : ""+m.from.x+m.from.y) + m.to.x + m.to.y + (m.promote?"+":"") + ",";
+  }
+  let h=0x811c9dc5;
+  for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,0x01000193); }
+  return (h>>>0).toString(36)+"."+ms.length;
+}
 function save(){
   const g=curGame();
-  if(g){ g.moves=moves; g.mySide=mySide; g.result=result; g.updated=Date.now(); }
+  if(g){
+    g.moves=moves; g.mySide=mySide; g.result=result;
+    const sg=sigOf(moves,mySide,result);
+    if(g.sig!==sg){ g.sig=sg; g.updated=Date.now(); }   // 中身が変わったときだけ
+  }
   try{ localStorage.setItem(KEY,JSON.stringify({games,curId,lastMyName})); }
   catch(e){ toast("保存できませんでした。古い棋譜を削除してください"); }
+}
+/* KIFに出し終えた印を付ける */
+function markExported(){
+  save();
+  const g=curGame();
+  if(g){ g.savedSig=g.sig; g.savedAt=Date.now(); }
+  try{ localStorage.setItem(KEY,JSON.stringify({games,curId,lastMyName})); }catch(e){}
+  renderGameList();
+}
+/* 出し済み / 出したあと直した / まだ、の3状態 */
+function exportState(g){
+  if(!g.savedSig) return "none";
+  const sg=g.sig||sigOf(g.moves,g.mySide,g.result);
+  return g.savedSig===sg ? "done" : "stale";
 }
 function load(){
   try{
@@ -1127,6 +1172,7 @@ function load(){
   }
   if(!games.length) games.push(newGame());
   if(!curGame()) curId=games[0].id;
+  for(const g of games) if(!g.sig) g.sig=sigOf(g.moves||[],g.mySide||0,g.result||null);
   pullGame();
 }
 let AC=null;
