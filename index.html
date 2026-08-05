@@ -54,7 +54,12 @@ h1{font-size:16px;margin:0;letter-spacing:.2em;font-weight:600}
 
 /* ---- 盤まわり ---- */
 /* 持駒は盤の横の駒台に描く。相手の台は左上、自分の台は右下（本物と同じ並び） */
-#stage{flex:1;min-height:0;display:flex;padding:0 5px}
+/* 画面を三層に分ける。上＝記録の帯、ここ＝局面、下＝入力 */
+#stage{
+  flex:1;min-height:0;display:flex;padding:0 5px;
+  background:rgba(255,255,255,.32);
+  border-bottom:1px solid var(--kami2);
+}
 #boardwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
 #boardcol{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:100%}
 canvas{display:block;touch-action:manipulation}
@@ -71,7 +76,7 @@ canvas{display:block;touch-action:manipulation}
 /* ---- 対局者の名札。盤の上が相手、下が自分。指すほうを塗る ---- */
 .turnbar{
   flex:0 0 auto;align-self:stretch;display:flex;align-items:center;gap:8px;
-  padding:clamp(8px,1.4vh,13px) 13px;border-radius:3px;
+  padding:clamp(9px,1.7vh,16px) 13px;border-radius:3px;
   border:2px solid var(--kami2);background:transparent;
   color:var(--usu);letter-spacing:.1em;
 }
@@ -93,14 +98,19 @@ canvas{display:block;touch-action:manipulation}
 .sg-sub{font-size:11.5px;color:var(--usu);letter-spacing:.1em}
 .sg-row{display:flex;gap:6px;align-items:stretch}
 .sg{
-  flex:1;font-family:inherit;font-size:clamp(16px,2vh,19px);padding:clamp(9px,3vh,28px) 3px;border-radius:3px;min-width:0;
-  border:1.5px solid var(--sumi);background:#FBF6EA;color:var(--sumi);letter-spacing:.02em;
-  box-shadow:0 1px 0 rgba(35,29,22,.12);
+  flex:1;font-family:inherit;font-size:clamp(16px,2vh,19px);padding:clamp(9px,3vh,28px) 3px;border-radius:4px;min-width:0;
+  border:2px solid var(--sumi);letter-spacing:.02em;
+  box-shadow:0 2px 4px rgba(35,29,22,.22);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
 }
+/* 指すほうの色をそのまま着せる。名札と同じ決めごと */
+.sg.sente{background:var(--sente);color:var(--kami)}
+.sg.gote {background:var(--gote); color:var(--sumi)}
+.sg.sente small{color:rgba(239,231,214,.72)}
+.sg.gote  small{color:var(--usu)}
 /* 「▲２二角成」まで一行に収める */
 .sg>span{white-space:nowrap}
-.sg small{font-family:system-ui,sans-serif;font-size:9px;color:var(--usu)}
+.sg small{font-family:system-ui,sans-serif;font-size:9.5px}
 .sg-more{
   flex:0 0 auto;font-family:inherit;font-size:11px;padding:0 9px;border-radius:3px;
   border:1px dashed var(--usu);background:transparent;color:var(--usu);line-height:1.3;
@@ -118,9 +128,10 @@ canvas{display:block;touch-action:manipulation}
 
 /* ---- 棋譜用紙 ---- */
 #sheet{
-  flex:0 0 auto;height:clamp(74px,15vh,150px);margin:0;padding:5px 10px 4px;
+  flex:0 0 auto;height:clamp(56px,8vh,74px);margin:0;padding:3px 10px;
   overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
   scrollbar-width:none;                 /* 札の下に黒い線が出ないように */
+  border-bottom:1px solid var(--kami2); /* 記録の帯として下の操作から切り離す */
 }
 #sheet::-webkit-scrollbar{display:none}
 #list{display:flex;gap:0;height:100%;align-items:stretch}
@@ -133,9 +144,9 @@ canvas{display:block;touch-action:manipulation}
   padding:3px 4px;background:transparent;font-family:inherit;color:var(--sumi);
 }
 .cell:first-child{border-left:1px solid var(--kami2)}
-.cell .num{font-size:9.5px;color:var(--usu);font-family:system-ui,sans-serif}
-.cell .mv{font-size:clamp(16px,2.2vh,21px);margin-top:3px;white-space:nowrap;line-height:1.2}
-.cell .frm{font-size:8.5px;color:var(--usu);font-family:system-ui,sans-serif;margin-top:1px}
+.cell .num{font-size:9px;color:var(--usu);font-family:system-ui,sans-serif;line-height:1}
+.cell .mv{font-size:clamp(15px,1.9vh,18px);margin-top:2px;white-space:nowrap;line-height:1.15}
+.cell .frm{font-size:8.5px;color:var(--usu);font-family:system-ui,sans-serif;margin-top:0;line-height:1.1}
 .cell .mv .mk{font-size:13px;vertical-align:1px;margin-right:1px}
 .cell.gote{background:rgba(255,255,255,.6)}          /* 後手＝白 */
 .cell .mv .mk{color:var(--sumi)}
@@ -200,7 +211,7 @@ canvas{display:block;touch-action:manipulation}
 <div id="cardbar">
   <button id="cFix">訂正</button>
   <button id="cIns">前に一手</button>
-  <button id="cHole">不明に戻す</button>
+  <button id="cHole">？に戻す</button>
   <button id="cDel" class="del">削除</button>
 </div>
 
@@ -218,9 +229,9 @@ canvas{display:block;touch-action:manipulation}
 <div id="suggest"></div>
 
 <div id="bar">
-  <button id="bUndo">待った</button>
-  <button id="bHole" class="q">不明</button>
-  <button id="bKif">書き出し</button>
+  <button id="bUndo">戻る</button>
+  <button id="bHole" class="q">？</button>
+  <button id="bKif">保存</button>
   <button id="bList">一覧</button>
 </div>
 
@@ -789,7 +800,7 @@ function renderSuggest(){
 }
 function sgButton(st,m){
   const inf=moveInfo(st,m,lastTo());
-  const b=document.createElement("button"); b.className="sg";
+  const b=document.createElement("button"); b.className="sg "+(inf.side===0?"sente":"gote");
   const t=document.createElement("span"); t.textContent=(inf.side===0?"▲":"△")+inf.disp;
   b.appendChild(t);
   const s=document.createElement("small"); s.textContent=inf.frm?"("+inf.frm+")":"持駒";
@@ -876,7 +887,7 @@ $("pYes").onclick=()=>{ $("promo").classList.remove("on"); commit({...pending,pr
 $("pNo").onclick =()=>{ $("promo").classList.remove("on"); commit({...pending,promote:false}); };
 
 $("bUndo").onclick=()=>{ if(!moves.length)return; moves.pop(); resetSel(); render(); };
-$("bHole").onclick=()=>{ moves.push({k:"hole"}); resetSel(); toast("後で埋められます。棋譜の「？」を押してください"); render(); };
+$("bHole").onclick=()=>{ moves.push({k:"hole"}); resetSel(); toast("後で埋められます。上の「？」の札を押してください"); render(); };
 $("banstop").onclick=()=>{ editIdx=-1; resetSel(); render(); };
 $("cFix").onclick=()=>{ editIdx=selCard; selCard=-1; resetSel(); render(); };
 $("cIns").onclick=()=>{ moves.splice(selCard,0,{k:"hole"}); editIdx=selCard; selCard=-1; resetSel(); render(); };
@@ -885,7 +896,7 @@ $("cDel").onclick=()=>{
   const i=selCard;
   if(i<moves.length-1){
     askModal("この手を削除すると、以降の手が一手ずつずれます。",[
-      {t:"不明（？）に戻す　推奨",cls:"p",fn:()=>{ moves[i]={k:"hole"}; editIdx=i; selCard=-1; resetSel(); render(); }},
+      {t:"「？」に戻す　推奨",cls:"p",fn:()=>{ moves[i]={k:"hole"}; editIdx=i; selCard=-1; resetSel(); render(); }},
       {t:"そのまま削除",fn:()=>{ moves.splice(i,1); selCard=-1; resetSel(); render(); }},
       {t:"中止",cls:"ghost",fn:null}
     ]);
@@ -963,7 +974,7 @@ $("bList").onclick=()=>{ hideToast(); save(); renderGameList(); $("glist").class
 $("glClose").onclick=()=>$("glist").classList.remove("on");
 $("glNew").onclick=startNewGame;
 
-/* ==================== 書き出し ==================== */
+/* ==================== 保存（KIFで書き出す） ==================== */
 function askResult(next){
   askModal("結果は？",[
     {t:"勝ち",cls:"p",fn:()=>{result="win";next();}},
@@ -1007,7 +1018,7 @@ async function doExport(after){
     const file=new File([text],name,{type:"text/plain"});
     if(navigator.canShare&&navigator.canShare({files:[file]})){
       await navigator.share({files:[file],title:"棋譜"});
-      toast("書き出しました");
+      toast("保存しました");
       if(after)after();
       return;
     }
@@ -1022,14 +1033,14 @@ async function doExport(after){
   setTimeout(()=>URL.revokeObjectURL(url),4000);
   let copied=false;
   try{ if(navigator.clipboard){ await navigator.clipboard.writeText(text); copied=true; } }catch(e){}
-  toast(copied? "KIFで書き出しました（本文のコピーも完了）" : "KIFで書き出しました");
+  toast(copied? "KIFで保存しました（本文のコピーも完了）" : "KIFで保存しました");
   if(after)after();
 }
 $("bKif").onclick=()=>{
   if(!moves.length) return toast("まだ一手も入っていません");
   const hole=R.info.findIndex(i=>i.hole), bad=R.info.findIndex(i=>i.bad);
-  if(hole>=0) return toast((hole+1)+"手目が「？」のままです。埋めてから書き出せます");
-  if(bad>=0)  return toast((bad+1)+"手目が指せない手になっています。訂正してください");
+  if(hole>=0) return toast((hole+1)+"手目が「？」のままです。埋めてから保存できます");
+  if(bad>=0)  return toast((bad+1)+"手目が指せない手になっています。札を押して訂正してください");
   askResult(()=>doExport());
 };
 /* ==================== 保存・音 ==================== */
