@@ -56,7 +56,7 @@ h1{font-size:16px;margin:0;letter-spacing:.2em;font-weight:600}
 /* 持駒は盤の横の駒台に描く。相手の台は左上、自分の台は右下（本物と同じ並び） */
 /* 画面を三層に分ける。上＝記録の帯、ここ＝局面、下＝入力 */
 #stage{
-  flex:1;min-height:0;display:flex;padding:0 5px;
+  flex:1;min-height:0;display:flex;padding:0 1px;   /* 盤の取り分を最大にする */
   background:rgba(255,255,255,.32);
   border-bottom:1px solid var(--kami2);
 }
