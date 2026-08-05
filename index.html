@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#EFE7D6">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="棋譜ノート">
+<meta name="description" content="対局のあと、うろ覚えでも棋譜を書きとめるためのノート">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
 <title>棋譜ノート</title>
 <style>
 :root{
@@ -128,6 +133,21 @@ canvas{display:block;touch-action:manipulation}
 #cardbar button.del{color:var(--shu);border-color:var(--shu)}
 #cardbar button:disabled{opacity:.32}
 
+/* ---- 棋譜の一覧 ---- */
+.sheet3{background:var(--kami);width:min(420px,94vw);max-height:86vh;border-radius:3px;display:flex;flex-direction:column;overflow:hidden}
+.gl-head{display:flex;align-items:center;padding:14px 16px 10px;border-bottom:1px solid var(--kami2);flex:0 0 auto}
+.gl-head span{font-size:15px;letter-spacing:.18em}
+.gl-head button{margin-left:auto;font-family:inherit;font-size:12px;padding:5px 12px;border:1px solid var(--koma-e);background:transparent;color:var(--usu);border-radius:2px}
+.gl-new{font-family:inherit;font-size:14.5px;padding:12px 0;margin:12px 14px 2px;border:1px dashed var(--sumi);background:transparent;color:var(--sumi);border-radius:2px;letter-spacing:.1em;flex:0 0 auto}
+#glBody{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:2px 14px 14px}
+.gl-row{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px solid var(--kami2)}
+.gl-open{flex:1;text-align:left;font-family:inherit;background:transparent;border:0;color:var(--sumi);padding:0;min-width:0}
+.gl-d{font-size:14.5px;letter-spacing:.04em}
+.gl-s{font-size:11px;color:var(--usu);margin-top:3px;font-family:system-ui,sans-serif;letter-spacing:.06em}
+.gl-row.cur .gl-d{font-weight:700}
+.gl-row.cur .gl-d::before{content:"●";color:var(--shu);font-size:9px;vertical-align:2px;margin-right:5px}
+.gl-del{font-family:inherit;font-size:11px;padding:6px 10px;border:1px solid var(--shu);background:transparent;color:var(--shu);border-radius:2px;flex:0 0 auto}
+
 /* ---- モーダル ---- */
 .modal{position:fixed;inset:0;background:rgba(35,29,22,.55);display:none;align-items:center;justify-content:center;z-index:9;padding:16px}
 .modal.on{display:flex}
@@ -149,7 +169,7 @@ canvas{display:block;touch-action:manipulation}
 <header>
   <h1>棋譜ノート</h1>
   <div class="side-pick">
-    <span class="sp-lab">わたし</span>
+    <span class="sp-lab">自分</span>
     <button id="mySen" class="on">先手</button>
     <button id="myGo">後手</button>
   </div>
@@ -162,24 +182,24 @@ canvas{display:block;touch-action:manipulation}
   <div id="handBottom"></div>
 </div>
 
-<div id="banner"><span id="bantext"></span><button id="banstop">やめる</button></div>
+<div id="banner"><span id="bantext"></span><button id="banstop">中止</button></div>
 <div id="suggest"></div>
-<div class="f-label">どの駒をうごかした？</div>
+<div class="f-label">どの駒を動かした？</div>
 <div id="filter"></div>
 
 <div id="bar">
-  <button id="bUndo">まった</button>
-  <button id="bHole" class="q">わからない</button>
-  <button id="bKif">かきだす</button>
-  <button id="bNew">あたらしく</button>
+  <button id="bUndo">待った</button>
+  <button id="bHole" class="q">不明</button>
+  <button id="bKif">書き出し</button>
+  <button id="bList">一覧</button>
 </div>
 
 <div id="sheet"><div id="list"></div></div>
 <div id="cardbar">
-  <button id="cFix">なおす</button>
-  <button id="cIns">まえに1手</button>
-  <button id="cHole">？にする</button>
-  <button id="cDel" class="del">けす</button>
+  <button id="cFix">訂正</button>
+  <button id="cIns">前に一手</button>
+  <button id="cHole">不明に戻す</button>
+  <button id="cDel" class="del">削除</button>
 </div>
 
 <div class="modal" id="promo"><div class="sheet2">
@@ -189,6 +209,11 @@ canvas{display:block;touch-action:manipulation}
 <div class="modal" id="ask"><div class="sheet2">
   <p id="askText"></p>
   <div class="col" id="askBtns"></div>
+</div></div>
+<div class="modal" id="glist"><div class="sheet3">
+  <div class="gl-head"><span>棋譜</span><button id="glClose">閉じる</button></div>
+  <button class="gl-new" id="glNew">＋　新しい棋譜</button>
+  <div id="glBody"></div>
 </div></div>
 <div id="toast"></div>
 
@@ -466,7 +491,8 @@ function suggest(st,opt){
   return out.slice(0,opt.limit||12);
 }
 /* ==================== 状態 ==================== */
-let moves=[], mySide=0, result=null;
+let games=[], curId=null;                 // 棋譜の一覧と、いま開いている棋譜
+let moves=[], mySide=0, result=null;      // いま開いている棋譜の中身
 let editIdx=-1, selCard=-1, sel=null, selDrop=null, pending=null;
 let pFilter=null, sgPage=0, curDests=[];
 let R={pos:[initState()],info:[]};
@@ -585,6 +611,8 @@ function draw(){
 /* ==================== 画面 ==================== */
 const $=id=>document.getElementById(id);
 function toast(t){ const e=$("toast"); e.textContent=t; e.classList.add("on"); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove("on"),2100); }
+/* 知らせは盤の上に出るので、窓を開けるときは先に消す */
+function hideToast(){ const e=$("toast"); clearTimeout(e._t); e.classList.remove("on"); }
 
 function renderHands(){
   const st=view(), topSide=mySide^1;
@@ -606,7 +634,7 @@ function renderHands(){
 function renderSheet(){
   const el=$("list"); el.innerHTML="";
   if(!R.info.length){
-    const e=document.createElement("span"); e.className="sheet-empty"; e.textContent="まだ0手です";
+    const e=document.createElement("span"); e.className="sheet-empty"; e.textContent="まだ0手";
     el.appendChild(e);
   }
   R.info.forEach((inf,i)=>{
@@ -650,13 +678,11 @@ function renderSuggest(){
   });
   const lab=document.createElement("span"); lab.className="sg-label";
   if(!sgCache.length){
-    lab.textContent = pFilter? "その駒はうごかせません" : "うごかせる手がありません";
+    lab.textContent = pFilter? "その駒は動かせません" : "動かせる手がありません";
     el.appendChild(lab); return;
   }
   const side=st.t===0?"▲先手":"△後手";
-  lab.textContent = editIdx>=0
-    ? (idx+1)+"手目（"+side+"）、この手だったかな？"
-    : (idx+1)+"手目（"+side+"）、この手だったかな？";
+  lab.textContent=(idx+1)+"手目（"+side+"）　この手だった？";
   el.appendChild(lab);
 
   const row=document.createElement("div"); row.className="sg-row";
@@ -665,7 +691,7 @@ function renderSuggest(){
   for(let i=page*per;i<Math.min(sgCache.length,page*per+per);i++) row.appendChild(sgButton(st,sgCache[i]));
   if(pages>1){
     const more=document.createElement("button"); more.className="sg-more";
-    more.innerHTML="ほかの<br>手";
+    more.innerHTML="他の<br>手";
     more.onclick=()=>{ sgPage++; renderSuggest(); };
     row.appendChild(more);
   }
@@ -676,7 +702,7 @@ function sgButton(st,m){
   const b=document.createElement("button"); b.className="sg";
   const t=document.createElement("span"); t.textContent=(inf.side===0?"▲":"△")+inf.disp;
   b.appendChild(t);
-  const s=document.createElement("small"); s.textContent=inf.frm?"("+inf.frm+")":"もちごま";
+  const s=document.createElement("small"); s.textContent=inf.frm?"("+inf.frm+")":"持駒";
   b.appendChild(s);
   b.onclick=()=>commit(m);
   return b;
@@ -734,7 +760,7 @@ function render(){
 /* ==================== 入力 ==================== */
 function commit(m){
   const st=view();
-  if(!isLegal(st,m)){ toast("その手はここではさせません"); return; }
+  if(!isLegal(st,m)){ toast("その手はここでは指せません"); return; }
   if(editIdx>=0){ moves[editIdx]={k:"m",...m}; editIdx=-1; selCard=-1; }
   else moves.push({k:"m",...m});
   sel=null; selDrop=null; pFilter=null; sgPage=0; beep();
@@ -757,7 +783,7 @@ cv.addEventListener("click",e=>{
       const can=!p.p&&canPromoType(p.t)&&(inZone(p.s,sel.y)||inZone(p.s,d.y));
       if(must) return commit({from:sel,to:d,promote:true});
       if(can){
-        pending={from:sel,to:d};
+        hideToast(); pending={from:sel,to:d};
         $("promoText").textContent=NM[p.t]+"、成った？";
         $("promo").classList.add("on"); return;
       }
@@ -774,7 +800,7 @@ $("pYes").onclick=()=>{ $("promo").classList.remove("on"); commit({...pending,pr
 $("pNo").onclick =()=>{ $("promo").classList.remove("on"); commit({...pending,promote:false}); };
 
 $("bUndo").onclick=()=>{ if(!moves.length)return; moves.pop(); resetSel(); render(); };
-$("bHole").onclick=()=>{ moves.push({k:"hole"}); resetSel(); toast("あとで埋められます。棋譜の「？」をタップ"); render(); };
+$("bHole").onclick=()=>{ moves.push({k:"hole"}); resetSel(); toast("後で埋められます。棋譜の「？」を押してください"); render(); };
 $("banstop").onclick=()=>{ editIdx=-1; resetSel(); render(); };
 $("cFix").onclick=()=>{ editIdx=selCard; selCard=-1; resetSel(); render(); };
 $("cIns").onclick=()=>{ moves.splice(selCard,0,{k:"hole"}); editIdx=selCard; selCard=-1; resetSel(); render(); };
@@ -782,10 +808,10 @@ $("cHole").onclick=()=>{ moves[selCard]={k:"hole"}; editIdx=selCard; selCard=-1;
 $("cDel").onclick=()=>{
   const i=selCard;
   if(i<moves.length-1){
-    askModal("この手をけすと、あとの手がぜんぶ1つずつズレます。",[
-      {t:"「？」にする（おすすめ）",cls:"p",fn:()=>{ moves[i]={k:"hole"}; editIdx=i; selCard=-1; resetSel(); render(); }},
-      {t:"それでもけす",fn:()=>{ moves.splice(i,1); selCard=-1; resetSel(); render(); }},
-      {t:"やめる",cls:"ghost",fn:null}
+    askModal("この手を削除すると、以降の手が一手ずつずれます。",[
+      {t:"不明（？）に戻す　推奨",cls:"p",fn:()=>{ moves[i]={k:"hole"}; editIdx=i; selCard=-1; resetSel(); render(); }},
+      {t:"そのまま削除",fn:()=>{ moves.splice(i,1); selCard=-1; resetSel(); render(); }},
+      {t:"中止",cls:"ghost",fn:null}
     ]);
   }else{ moves.splice(i,1); selCard=-1; resetSel(); render(); }
 };
@@ -795,6 +821,7 @@ function resetSel(){ sel=null; selDrop=null; pFilter=null; sgPage=0; }
 
 /* ==================== モーダル ==================== */
 function askModal(text,btns){
+  hideToast();
   $("askText").textContent=text;
   const box=$("askBtns"); box.innerHTML="";
   for(const b of btns){
@@ -805,23 +832,68 @@ function askModal(text,btns){
   }
   $("ask").classList.add("on");
 }
-$("bNew").onclick=()=>{
-  if(!moves.length) return toast("まだ何も書いていません");
-  askModal("いまの棋譜をけして、あたらしく書きはじめます。",[
-    {t:"かきだしてから",cls:"p",fn:()=>askResult(()=>doExport(resetAll))},
-    {t:"けしてOK",fn:resetAll},
-    {t:"やめる",cls:"ghost",fn:null}
-  ]);
-};
-function resetAll(){ moves=[]; result=null; editIdx=-1; selCard=-1; resetSel(); render(); }
+/* ==================== 棋譜の一覧 ==================== */
+/* 棋譜は消さずに貯める。「新しい棋譜」を始めても前のものは残る。 */
+function newGame(){ const t=Date.now(); return {id:t.toString(36)+Math.random().toString(36).slice(2,6),created:t,updated:t,moves:[],mySide:0,result:null}; }
+function curGame(){ return games.find(g=>g.id===curId); }
+function pullGame(){ const g=curGame(); if(!g)return; moves=g.moves; mySide=g.mySide; result=g.result; }
+function openGame(id){
+  save();                       // いまの棋譜を確定させてから切り替える
+  curId=id; pullGame();
+  editIdx=-1; selCard=-1; resetSel();
+  $("glist").classList.remove("on");
+  render();
+}
+function startNewGame(){ const g=newGame(); games.unshift(g); openGame(g.id); }
+function deleteGame(id){
+  const i=games.findIndex(g=>g.id===id); if(i<0)return;
+  games.splice(i,1);
+  if(!games.length) games.push(newGame());
+  if(id===curId){ curId=games[0].id; pullGame(); editIdx=-1; selCard=-1; resetSel(); }
+  save(); renderGameList(); render();
+}
+function fmtDate(ts){
+  const d=new Date(ts);
+  return (d.getMonth()+1)+"月"+d.getDate()+"日 "+d.getHours()+":"+String(d.getMinutes()).padStart(2,"0");
+}
+function renderGameList(){
+  const box=$("glBody"); box.innerHTML="";
+  const sorted=[...games].sort((a,b)=>b.updated-a.updated);
+  for(const g of sorted){
+    const row=document.createElement("div");
+    row.className="gl-row"+(g.id===curId?" cur":"");
+    const open=document.createElement("button"); open.className="gl-open";
+    const d=document.createElement("div"); d.className="gl-d"; d.textContent=fmtDate(g.created);
+    const s=document.createElement("div"); s.className="gl-s";
+    const res=g.result==="win"?"勝ち":g.result==="lose"?"負け":g.result==="draw"?"引き分け":"";
+    const holes=g.moves.filter(m=>m.k==="hole").length;
+    s.textContent=[(g.mySide===0?"自分＝先手":"自分＝後手"),g.moves.length+"手",res,holes?"未記入"+holes:""].filter(Boolean).join("　");
+    open.appendChild(d); open.appendChild(s);
+    open.onclick=()=>openGame(g.id);
+    row.appendChild(open);
+    const del=document.createElement("button"); del.className="gl-del"; del.textContent="削除";
+    del.onclick=()=>{
+      $("glist").classList.remove("on");
+      askModal(fmtDate(g.created)+"の棋譜（"+g.moves.length+"手）を削除します。",[
+        {t:"削除",cls:"p",fn:()=>{ deleteGame(g.id); $("glist").classList.add("on"); }},
+        {t:"中止",cls:"ghost",fn:()=>{ $("glist").classList.add("on"); }}
+      ]);
+    };
+    row.appendChild(del);
+    box.appendChild(row);
+  }
+}
+$("bList").onclick=()=>{ hideToast(); save(); renderGameList(); $("glist").classList.add("on"); };
+$("glClose").onclick=()=>$("glist").classList.remove("on");
+$("glNew").onclick=startNewGame;
 
 /* ==================== 書き出し ==================== */
 function askResult(next){
-  askModal("けっかは？",[
-    {t:"かった",cls:"p",fn:()=>{result="win";next();}},
-    {t:"まけた",fn:()=>{result="lose";next();}},
-    {t:"ひきわけ",fn:()=>{result="draw";next();}},
-    {t:"きめない",cls:"ghost",fn:()=>{result=null;next();}}
+  askModal("結果は？",[
+    {t:"勝ち",cls:"p",fn:()=>{result="win";next();}},
+    {t:"負け",fn:()=>{result="lose";next();}},
+    {t:"引き分け",fn:()=>{result="draw";next();}},
+    {t:"記録しない",cls:"ghost",fn:()=>{result=null;next();}}
   ]);
 }
 function padMove(s){
@@ -854,17 +926,17 @@ function fname(){
 }
 async function doExport(after){
   const text=kifText(), name=fname();
-  // iPhone/iPad は「共有」からファイルアプリやLINEに保存できる
+  // iPhone / iPad は共有シートからファイルやLINEに保存できる
   try{
     const file=new File([text],name,{type:"text/plain"});
     if(navigator.canShare&&navigator.canShare({files:[file]})){
       await navigator.share({files:[file],title:"棋譜"});
-      toast("かきだしました");
+      toast("書き出しました");
       if(after)after();
       return;
     }
   }catch(e){
-    if(e&&e.name==="AbortError") return;      // ユーザーがキャンセルしただけ
+    if(e&&e.name==="AbortError") return;      // 利用者が共有を取り消しただけ
   }
   const blob=new Blob([text],{type:"text/plain;charset=utf-8"});
   const url=URL.createObjectURL(blob);
@@ -874,24 +946,44 @@ async function doExport(after){
   setTimeout(()=>URL.revokeObjectURL(url),4000);
   let copied=false;
   try{ if(navigator.clipboard){ await navigator.clipboard.writeText(text); copied=true; } }catch(e){}
-  toast(copied? "KIFでかきだしました（コピーもしました）" : "KIFでかきだしました");
+  toast(copied? "KIFで書き出しました（本文のコピーも完了）" : "KIFで書き出しました");
   if(after)after();
 }
 $("bKif").onclick=()=>{
   if(!moves.length) return toast("まだ一手も入っていません");
   const hole=R.info.findIndex(i=>i.hole), bad=R.info.findIndex(i=>i.bad);
-  if(hole>=0) return toast((hole+1)+"手目がまだ「？」です。うめてからかきだせます");
-  if(bad>=0)  return toast((bad+1)+"手目がさせない手になっています。なおしてください");
+  if(hole>=0) return toast((hole+1)+"手目が「？」のままです。埋めてから書き出せます");
+  if(bad>=0)  return toast((bad+1)+"手目が指せない手になっています。訂正してください");
   askResult(()=>doExport());
 };
 /* ==================== 保存・音 ==================== */
-const KEY="kifu-note-v2";
-function save(){ try{ localStorage.setItem(KEY,JSON.stringify({moves,mySide,result})); }catch(e){} }
+const KEY="kifu-note-v3";
+function save(){
+  const g=curGame();
+  if(g){ g.moves=moves; g.mySide=mySide; g.result=result; g.updated=Date.now(); }
+  try{ localStorage.setItem(KEY,JSON.stringify({games,curId})); }
+  catch(e){ toast("保存できませんでした。古い棋譜を削除してください"); }
+}
 function load(){
   try{
     const d=JSON.parse(localStorage.getItem(KEY)||"null");
-    if(d&&Array.isArray(d.moves)){ moves=d.moves; mySide=d.mySide||0; result=d.result||null; }
+    if(d&&Array.isArray(d.games)&&d.games.length){ games=d.games; curId=d.curId; }
   }catch(e){}
+  if(!games.length){
+    // 一局しか持てなかった頃の保存を引き継ぐ
+    for(const k of ["kifu-note-v2","kifu-note-v1"]){
+      try{
+        const o=JSON.parse(localStorage.getItem(k)||"null");
+        if(o&&Array.isArray(o.moves)&&o.moves.length){
+          const g=newGame(); g.moves=o.moves; g.mySide=o.mySide||0; g.result=o.result||null;
+          games.push(g); break;
+        }
+      }catch(e){}
+    }
+  }
+  if(!games.length) games.push(newGame());
+  if(!curGame()) curId=games[0].id;
+  pullGame();
 }
 let AC=null;
 function beep(){
@@ -908,6 +1000,9 @@ function beep(){
 }
 let rz;
 window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(()=>{layout();draw();},80); });
+/* オフラインで開けるように。file:// では動かないので http(s) のときだけ */
+if("serviceWorker" in navigator && location.protocol.indexOf("http")===0)
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 load(); render();
 </script>
 </body>
