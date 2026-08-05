@@ -77,7 +77,7 @@ canvas{display:block;touch-action:manipulation}
 .turnbar{
   flex:0 0 auto;align-self:stretch;display:flex;align-items:center;gap:8px;
   flex-wrap:wrap;row-gap:5px;                      /* 入りきらないら持ち駒を次の行へ */
-  padding:clamp(9px,1.7vh,16px) 13px;border-radius:3px;
+  padding:clamp(8px,1.2vh,12px) 12px;border-radius:3px;
   border:2px solid var(--kami2);background:transparent;
   color:var(--usu);letter-spacing:.1em;
 }
@@ -85,7 +85,7 @@ canvas{display:block;touch-action:manipulation}
 .turnbar .who{font-size:14px;flex:0 0 auto;white-space:nowrap}
 .turnbar .noban{font-size:14px;flex:0 0 auto;white-space:nowrap;margin-left:-4px}
 .turnbar .sub{font-size:11px;opacity:.75;letter-spacing:.08em;flex:0 1 auto;
-  min-width:2em;max-width:7em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  min-width:2em;max-width:5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .turnbar .now{flex:0 0 auto;font-size:11.5px;font-family:system-ui,sans-serif;letter-spacing:.06em;opacity:.72}
 /* 持ち駒。帯が駒台をかねる */
 /* 横に入りきらなければ帯ごと折り返して、持ち駒を隠さない */
@@ -93,7 +93,8 @@ canvas{display:block;touch-action:manipulation}
   gap:3px;row-gap:4px;flex-wrap:wrap;justify-content:flex-end;padding:0 2px}
 .hk{
   flex:0 0 auto;position:relative;padding:0;border:0;background:#8A6A34;
-  width:clamp(20px,5.6vw,30px);height:clamp(21px,6vw,32px);
+  width:var(--hk,26px);height:calc(var(--hk,26px) * 1.06);
+  font-size:calc(var(--hk,26px) * 0.58);
   clip-path:polygon(50% 0%,86% 19%,100% 100%,0 100%,14% 19%);
 }
 .hk .c{
@@ -101,12 +102,12 @@ canvas{display:block;touch-action:manipulation}
   clip-path:polygon(50% 0%,86% 19%,100% 100%,0 100%,14% 19%);
   background:linear-gradient(180deg,#F7E8BE,#EBD59F);color:#241C12;
   font-family:"Koma","Hiragino Mincho ProN","Yu Mincho",serif;
-  font-size:clamp(12px,3.5vw,17px);padding-top:9%;
+  font-size:inherit;padding-top:9%;
 }
 .hk .n{
   position:absolute;right:-1px;bottom:-3px;z-index:1;
-  font-family:system-ui,sans-serif;font-size:10px;font-weight:700;
-  color:var(--kami);background:var(--shu);border-radius:6px;padding:0 3px;line-height:1.3;
+  font-family:system-ui,sans-serif;font-size:clamp(10px,calc(var(--hk,26px) * .33),14px);
+  font-weight:700;color:var(--kami);background:var(--shu);border-radius:7px;padding:0 4px;line-height:1.35;
 }
 .hk[disabled]{opacity:.42}
 .hk.sel .c{background:linear-gradient(180deg,#40352A,#231D16);color:#F2DFB0}
@@ -236,7 +237,7 @@ canvas{display:block;touch-action:manipulation}
 /* 幅の狭い端末では手数を省いて、持ち駒を折り返さずに一行へ収める。
    帯が一行で済むぶん盤を大きく取れる */
 @media (max-width:415px){
-  .turnbar .now,.turnbar .noban{display:none}
+  .turnbar .noban{display:none}
   .turnbar{gap:6px;padding-left:10px;padding-right:10px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -603,12 +604,40 @@ const bdX=i=>flip()?8-i:i, bdY=j=>flip()?8-j:j;
 const LB=0.5;   // 筋・段の数字を書く余白
 function layout(){
   const wrap=document.getElementById("boardwrap");
-  const plates=document.getElementById("turnTop").offsetHeight
-              +document.getElementById("turnBot").offsetHeight+12;   // 名札とすき間のぶん
   const availW=Math.max(180,wrap.clientWidth);
-  const availH=Math.max(180,wrap.clientHeight-plates);
-  // 横は［盤9］［段の数字］、縦は［筋の数字］［盤9］。駒台は盤の上下の帯に移した
-  const cell=Math.max(18,Math.floor(Math.min(availW/(9+LB), availH/(9+LB))));
+  const byW=Math.floor(availW/(9+LB));          // 横幅だけで決まるマスの大きさ
+  /* 帯の駒は「盤の駒より少しだけ小さい」を狙う。ただし持ち駒が7種類
+     そろっても折り返さない大きさに抑える。折り返すと帯が二行になって
+     そのぶん盤が小さくなるため。 */
+  const fitHand=(cell)=>{
+    const barW=cell*9+Math.round(cell*LB);      // 帯は盤と同じ幅になる
+    const bar=document.getElementById("turnBot"), cs=getComputedStyle(bar);
+    const padX=parseFloat(cs.paddingLeft)+parseFloat(cs.paddingRight);
+    const gap=parseFloat(cs.columnGap)||8;
+    let labelW=0, parts=1;
+    for(const b of [document.getElementById("turnTop"),document.getElementById("turnBot")]){
+      let w=0,n=0;
+      for(const e of b.children) if(!e.classList.contains("hand")){ w+=e.getBoundingClientRect().width; n++; }
+      if(w>labelW){ labelW=w; parts=n; }
+    }
+    // いま実際に載っている種類数で計算する。常に7種類ぶん空けると
+    // 持ち駒が少ないときまで小さくなってしまう
+    let n=1;
+    for(const b of [document.getElementById("turnTop"),document.getElementById("turnBot")])
+      n=Math.max(n,b.querySelectorAll(".hk").length);
+    const room=barW-padX-labelW-gap*(parts+1)-6;
+    const maxHk=Math.floor((room-3*(n-1))/n);
+    return Math.max(18,Math.min(42,Math.round(cell*0.80),Math.max(18,maxHk)));
+  };
+  // 一度目は横幅から、二度目は実際のマスの大きさから決めて釣り合わせる
+  let cell=byW, plates=0;
+  for(let pass=0;pass<2;pass++){
+    document.documentElement.style.setProperty("--hk",fitHand(cell)+"px");
+    plates=document.getElementById("turnTop").offsetHeight
+          +document.getElementById("turnBot").offsetHeight+12;
+    const availH=Math.max(180,wrap.clientHeight-plates);
+    cell=Math.max(18,Math.floor(Math.min(byW, availH/(9+LB))));
+  }
   const m=Math.round(cell*LB);
   const W=cell*9+m, H=m+cell*9;
   cv.style.width=W+"px"; cv.style.height=H+"px";
@@ -779,7 +808,6 @@ function renderTurn(){
       hand.appendChild(b);
     }
     el.appendChild(hand);
-    if(on) add("now",(idx+1)+"手目");
   }
 }
 function renderSuggest(){
@@ -801,7 +829,7 @@ function renderSuggest(){
   });
   const lab=document.createElement("div"); lab.className="sg-label";
   const sub=document.createElement("span"); sub.className="sg-sub";
-  sub.textContent=sgCache.length? "この手だった？" : "動かせる手がありません";
+  sub.textContent=sgCache.length? (idx+1)+"手目　この手だった？" : "動かせる手がありません";
   lab.appendChild(sub);
   el.appendChild(lab);
   if(!sgCache.length) return;
