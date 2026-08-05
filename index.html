@@ -24,7 +24,8 @@
 :root{
   --sumi:#231D16; --kami:#EFE7D6; --kami2:#E4D9C2;
   --ban:#E0BC7E; --ban-line:#5E4526; --koma:#F2DFB0; --koma-e:#C9A96E;
-  --shu:#B23A2E; --ai:#2C4A63; --usu:#6F6047;
+  --shu:#B23A2E; --usu:#6F6047;
+  --sente:#231D16; --gote:#FFFFFF;   /* 先手は黒、後手は白 */
   --midori:#0ABAB5;   /* ティファニーグリーン。行き先の印だけに使う */
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -48,7 +49,8 @@ h1{font-size:16px;margin:0;letter-spacing:.2em;font-weight:600}
   font-family:inherit;font-size:11.5px;padding:4px 9px;border-radius:2px;
   border:1px solid var(--koma-e);background:transparent;color:var(--usu);letter-spacing:.08em;
 }
-.side-pick button.on{background:var(--sumi);border-color:var(--sumi);color:var(--kami)}
+.side-pick button.on{background:var(--sente);border-color:var(--sumi);color:var(--kami)}
+#myGo.on{background:var(--gote);color:var(--sumi)}
 
 /* ---- 盤まわり ---- */
 /* 持駒は盤の横の駒台に描く。相手の台は左上、自分の台は右下（本物と同じ並び） */
@@ -70,17 +72,20 @@ canvas{display:block;touch-action:manipulation}
 .turnbar{
   flex:0 0 auto;align-self:stretch;display:flex;align-items:center;gap:8px;
   padding:clamp(8px,1.4vh,13px) 13px;border-radius:3px;
-  border:1px solid var(--kami2);background:transparent;
+  border:2px solid var(--kami2);background:transparent;
   color:var(--usu);letter-spacing:.1em;
 }
 .turnbar .mk{font-size:15px;line-height:1}
 .turnbar .who{font-size:14px}
 .turnbar .sub{font-size:11px;opacity:.75;letter-spacing:.08em}
 .turnbar .now{margin-left:auto;font-size:11.5px;font-family:system-ui,sans-serif;letter-spacing:.06em}
-.turnbar.on{background:var(--sumi);border-color:var(--sumi);color:var(--kami)}
-.turnbar.on.gote{background:var(--ai);border-color:var(--ai)}
+.turnbar.on{
+  background:var(--sente);border-color:var(--sente);color:var(--kami);
+  box-shadow:0 1px 3px rgba(35,29,22,.20);
+}
+.turnbar.on.gote{background:var(--gote);border-color:var(--sumi);color:var(--sumi)}
 .turnbar.on .who{font-weight:700}
-.turnbar.on .now{color:#8FE9E5}
+.turnbar.on .now{opacity:.72}
 
 /* ---- この手かな？（3択） ---- */
 #suggest{flex:0 0 auto;padding:5px 10px 0}
@@ -89,7 +94,7 @@ canvas{display:block;touch-action:manipulation}
 .sg-row{display:flex;gap:6px;align-items:stretch}
 .sg{
   flex:1;font-family:inherit;font-size:clamp(16px,2vh,19px);padding:clamp(9px,3vh,28px) 3px;border-radius:3px;min-width:0;
-  border:1.5px solid var(--ai);background:#FBF6EA;color:var(--ai);letter-spacing:.02em;
+  border:1.5px solid var(--sumi);background:#FBF6EA;color:var(--sumi);letter-spacing:.02em;
   box-shadow:0 1px 0 rgba(35,29,22,.12);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
 }
@@ -119,7 +124,9 @@ canvas{display:block;touch-action:manipulation}
 }
 #sheet::-webkit-scrollbar{display:none}
 #list{display:flex;gap:0;height:100%;align-items:stretch}
+#list::after{content:"";flex:0 0 10px}   /* 最後の札が右端に貼り付かないように */
 .cell{
+  flex:0 0 auto;                                  /* 手数が増えても札を縮めない（横に流す） */
   min-width:clamp(58px,9vw,76px);
   border:0;border-right:1px solid var(--kami2);   /* 既定のボーダーが上下に出るので一度消す */
   display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -129,8 +136,9 @@ canvas{display:block;touch-action:manipulation}
 .cell .num{font-size:9.5px;color:var(--usu);font-family:system-ui,sans-serif}
 .cell .mv{font-size:clamp(16px,2.2vh,21px);margin-top:3px;white-space:nowrap;line-height:1.2}
 .cell .frm{font-size:8.5px;color:var(--usu);font-family:system-ui,sans-serif;margin-top:1px}
-.cell .mv .mk{font-size:11px;vertical-align:1px}
-.cell.gote .mv{color:var(--ai)}
+.cell .mv .mk{font-size:13px;vertical-align:1px;margin-right:1px}
+.cell.gote{background:rgba(255,255,255,.6)}          /* 後手＝白 */
+.cell .mv .mk{color:var(--sumi)}
 .cell.hole{background:rgba(178,58,46,.06)}
 .cell.hole .mv{color:var(--shu)}
 .cell.bad .mv{color:var(--shu);text-decoration:line-through}
