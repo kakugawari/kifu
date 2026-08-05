@@ -13,6 +13,14 @@
 <link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
 <title>棋譜ノート</title>
 <style>
+/* 駒の字。Shippori Mincho Bold から駒に使う14文字だけを切り出して埋め込んである。
+   端末のフォントに左右されず、オフラインでも同じ見た目になる。
+   SIL Open Font License 1.1 / 全文と作りなおし方は fonts/ を見てください。 */
+@font-face{
+  font-family:"Koma";
+  src:url(data:font/woff2;base64,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) format("woff2");
+  font-weight:400 900; font-style:normal; font-display:block;
+}
 :root{
   --sumi:#231D16; --kami:#EFE7D6; --kami2:#E4D9C2;
   --ban:#E0BC7E; --ban-line:#5E4526; --koma:#F2DFB0; --koma-e:#C9A96E;
@@ -42,20 +50,9 @@ h1{font-size:16px;margin:0;letter-spacing:.2em;font-weight:600}
 .side-pick button.on{background:var(--sumi);border-color:var(--sumi);color:var(--kami)}
 
 /* ---- 盤まわり ---- */
-#stage{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 8px}
-#handTop,#handBottom{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:5px;min-height:32px;align-items:center;padding:2px}
-#handTop{justify-content:flex-start}
-#handBottom{justify-content:flex-end}
+/* 持駒は盤の横の駒台に描く。相手の台は左上、自分の台は右下（本物と同じ並び） */
+#stage{flex:1;min-height:0;display:flex;padding:0 5px}
 #boardwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.hk{
-  font-family:inherit;font-size:16px;line-height:1;padding:5px 8px 6px;border-radius:2px;
-  border:1px solid var(--koma-e);background:var(--koma);color:var(--sumi);
-}
-.hk[disabled]{opacity:.4}
-.hk.sel{background:var(--sumi);color:var(--koma);border-color:var(--sumi)}
-.hk .n{font-size:10px;margin-left:2px;vertical-align:super;font-family:system-ui,sans-serif}
-.hk.g{transform:rotate(180deg)}
-.hand-empty{font-size:11px;color:var(--usu);letter-spacing:.1em}
 canvas{display:block;touch-action:manipulation}
 
 /* ---- 編集中バナー ---- */
@@ -72,7 +69,7 @@ canvas{display:block;touch-action:manipulation}
 .sg-label{font-size:11.5px;color:var(--usu);letter-spacing:.1em;display:block;margin-bottom:4px}
 .sg-row{display:flex;gap:6px;align-items:stretch}
 .sg{
-  flex:1;font-family:inherit;font-size:17px;padding:9px 4px 8px;border-radius:3px;min-width:0;
+  flex:1;font-family:inherit;font-size:clamp(17px,2.1vh,20px);padding:clamp(9px,1.7vh,15px) 4px;border-radius:3px;min-width:0;
   border:1px solid var(--ai);background:rgba(44,74,99,.07);color:var(--ai);letter-spacing:.02em;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
 }
@@ -86,7 +83,7 @@ canvas{display:block;touch-action:manipulation}
 /* ---- 駒でさがす ---- */
 #filter{flex:0 0 auto;display:flex;gap:4px;padding:6px 10px 0}
 #filter button{
-  flex:1;font-family:inherit;font-size:15px;padding:6px 0 7px;border-radius:2px;min-width:0;
+  flex:1;font-family:inherit;font-size:clamp(15px,1.9vh,18px);padding:clamp(6px,1.2vh,12px) 0;border-radius:2px;min-width:0;
   border:1px solid var(--koma-e);background:var(--koma);color:var(--sumi);
 }
 #filter button.on{background:var(--sumi);color:var(--koma);border-color:var(--sumi)}
@@ -96,7 +93,7 @@ canvas{display:block;touch-action:manipulation}
 /* ---- 操作バー ---- */
 #bar{flex:0 0 auto;display:flex;gap:6px;padding:7px 10px 4px}
 #bar button{
-  flex:1;font-family:inherit;font-size:13px;letter-spacing:.06em;padding:9px 0;
+  flex:1;font-family:inherit;font-size:clamp(13px,1.7vh,16px);letter-spacing:.06em;padding:clamp(9px,1.5vh,15px) 0;
   border:1px solid var(--koma-e);background:var(--koma);color:var(--sumi);border-radius:2px;
 }
 #bar button:disabled{opacity:.4}
@@ -104,12 +101,12 @@ canvas{display:block;touch-action:manipulation}
 
 /* ---- 棋譜用紙 ---- */
 #sheet{
-  flex:0 0 auto;height:72px;margin:3px 0 0;padding:3px 10px 6px;
+  flex:0 0 auto;height:clamp(72px,11vh,104px);margin:3px 0 0;padding:3px 10px 6px;
   overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
 }
 #list{display:flex;gap:0;height:100%;align-items:stretch}
 .cell{
-  min-width:58px;border-right:1px solid var(--kami2);
+  min-width:clamp(58px,8.5vw,70px);border-right:1px solid var(--kami2);
   display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
   padding:3px 4px 0;background:transparent;font-family:inherit;color:var(--sumi);
 }
@@ -177,9 +174,7 @@ canvas{display:block;touch-action:manipulation}
 </header>
 
 <div id="stage">
-  <div id="handTop"></div>
   <div id="boardwrap"><canvas id="bd"></canvas></div>
-  <div id="handBottom"></div>
 </div>
 
 <div id="banner"><span id="bantext"></span><button id="banstop">中止</button></div>
@@ -521,18 +516,20 @@ const flip=()=>mySide===1;
 const scX=x=>flip()?8-x:x, scY=y=>flip()?8-y:y;
 const bdX=i=>flip()?8-i:i, bdY=j=>flip()?8-j:j;
 
+const KD=1.35;  // 駒台の幅（マス何個ぶんか）
+const LB=0.5;   // 筋・段の数字を書く余白
 function layout(){
   const wrap=document.getElementById("boardwrap");
-  const availW=Math.max(160,wrap.clientWidth);
-  const availH=Math.max(160,wrap.clientHeight);
-  const base=Math.max(190,Math.min(availW,availH));
-  const m=Math.round(base*0.055);
-  const cell=Math.floor((base-m)/9);
-  const W=cell*9+m, H=cell*9+m;
+  const availW=Math.max(180,wrap.clientWidth);
+  const availH=Math.max(180,wrap.clientHeight);
+  // 横は［駒台］［盤9］［段の数字］［駒台］、縦は［筋の数字］［盤9］
+  const cell=Math.max(18,Math.floor(Math.min(availW/(9+2*KD+LB), availH/(9+LB))));
+  const m=Math.round(cell*LB), kw=Math.round(cell*KD);
+  const W=kw+cell*9+m+kw, H=m+cell*9;
   cv.style.width=W+"px"; cv.style.height=H+"px";
   const dpr=Math.min(window.devicePixelRatio||1,3);
   cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
-  G={cell,ox:0,oy:m,W,H,m};
+  G={cell,ox:kw,oy:m,W,H,m,kw};
 }
 function sqAt(cx,cy){
   const i=Math.floor((cx-G.ox)/G.cell), j=Math.floor((cy-G.oy)/G.cell);
@@ -550,10 +547,86 @@ function pentagon(g,cx,cy,w,h,rot){
   g.lineTo(-hw*0.72,-hh*0.62);
   g.closePath(); g.restore();
 }
+function roundRect(g,x,y,w,h,r){
+  g.beginPath();
+  g.moveTo(x+r,y);      g.lineTo(x+w-r,y);   g.quadraticCurveTo(x+w,y,x+w,y+r);
+  g.lineTo(x+w,y+h-r);  g.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  g.lineTo(x+r,y+h);    g.quadraticCurveTo(x,y+h,x,y+h-r);
+  g.lineTo(x,y+r);      g.quadraticCurveTo(x,y,x+r,y);
+  g.closePath();
+}
+/* 駒ひとつ。盤の上でも駒台の上でも同じものを使う。
+   五角形は頭がとがっているぶん重心が下寄りなので、字も少し下げて中央に見せる。 */
+const KOMA_FONT='"Koma","Hiragino Mincho ProN","Yu Mincho",serif';
+function drawKoma(g,cx,cy,w,h,rot,ch,pro,inv){
+  pentagon(g,cx,cy,w,h,rot);
+  const gr=g.createLinearGradient(cx,cy-h/2,cx,cy+h/2);
+  if(inv){ gr.addColorStop(0,"#40352A"); gr.addColorStop(1,"#231D16"); }
+  else   { gr.addColorStop(0,"#F7E8BE"); gr.addColorStop(1,"#EBD59F"); }
+  g.fillStyle=gr; g.fill();
+  g.strokeStyle=inv?"rgba(20,16,12,.9)":"rgba(120,90,45,.85)";
+  g.lineWidth=Math.max(1,w*0.026); g.stroke();
+  g.save(); g.translate(cx,cy); if(rot)g.rotate(Math.PI);
+  g.fillStyle=inv?"#F2DFB0":(pro?"#A5342B":"#241C12");
+  g.font=Math.round(h*0.60)+"px "+KOMA_FONT;
+  g.textAlign="center"; g.textBaseline="middle";
+  g.fillText(ch,0,h*0.085);
+  g.restore();
+}
+/* 駒台。中身のぶんだけの大きさにする（空なら小さいまま）。
+   押せる駒の場所は kdHit に控えておく。 */
+let kdHit=[];
+const kdSlot=()=>G.cell*0.95, kdPad=()=>G.cell*0.17;
+function komadaiH(st,side){
+  let n=0; for(const t of HAND_ORDER) if(st.h[side][t]>0) n++;
+  return Math.max(G.cell*1.7, kdPad()*2+kdSlot()*n);
+}
+function drawKomadai(st,x0,y0,w,h,side,rot){
+  const cell=G.cell, r=Math.round(cell*0.13);
+  // 台
+  ctx.save();
+  ctx.shadowColor="rgba(60,42,20,.22)"; ctx.shadowBlur=cell*0.18; ctx.shadowOffsetY=cell*0.05;
+  roundRect(ctx,x0,y0,w,h,r);
+  const gr=ctx.createLinearGradient(x0,y0,x0+w,y0+h);
+  gr.addColorStop(0,"#DCBB83"); gr.addColorStop(1,"#C69E60");
+  ctx.fillStyle=gr; ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle="rgba(94,69,38,.6)"; ctx.lineWidth=1.2;
+  roundRect(ctx,x0,y0,w,h,r); ctx.stroke();
+  // 縁のあたり（台の面に見えるように）
+  ctx.strokeStyle="rgba(255,255,255,.3)"; ctx.lineWidth=1;
+  roundRect(ctx,x0+2.5,y0+2.5,w-5,h-5,r-2); ctx.stroke();
+
+  const slot=kdSlot(), pad=kdPad();
+  const pw=Math.min(w*0.60,slot*0.88), ph=pw*1.05;
+  let i=0;
+  for(const t of HAND_ORDER){
+    const n=st.h[side][t]||0; if(!n)continue;
+    const cy=y0+pad+slot*(i+0.5), cx=x0+w*0.39;
+    const on=!!(selDrop&&selDrop.s===side&&selDrop.t===t);
+    ctx.save();
+    if(st.t!==side) ctx.globalAlpha=0.42;
+    drawKoma(ctx,cx,cy,pw,ph,rot,NM[t],false,on);
+    if(n>1){
+      ctx.fillStyle=on?"#B23A2E":"#3B2E1C";
+      ctx.font="700 "+Math.round(cell*0.31)+"px system-ui,sans-serif";
+      ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.fillText(String(n),x0+w*0.80,cy+ph*0.26);
+    }
+    ctx.restore();
+    kdHit.push({s:side,t,x:x0,y:cy-slot/2,w:w,h:slot});
+    i++;
+  }
+}
 function draw(){
   const st=view(), cell=G.cell;
   const topSide=mySide^1;
   ctx.clearRect(0,0,G.W,G.H);
+  // 駒台（相手＝左上、自分＝右下。本物の将棋と同じ並び）
+  kdHit=[];
+  const hTop=komadaiH(st,topSide), hBot=komadaiH(st,mySide);
+  drawKomadai(st,0,G.oy,G.kw,hTop,topSide,true);
+  drawKomadai(st,G.ox+cell*9+G.m,G.oy+cell*9-hBot,G.kw,hBot,mySide,false);
   const grad=ctx.createLinearGradient(0,G.oy,G.W,G.H);
   grad.addColorStop(0,"#E7C68B"); grad.addColorStop(.5,"#DFB877"); grad.addColorStop(1,"#E5C287");
   ctx.fillStyle=grad; ctx.fillRect(G.ox,G.oy,cell*9,cell*9);
@@ -585,19 +658,8 @@ function draw(){
   // 駒
   for(let y=0;y<9;y++)for(let x=0;x<9;x++){
     const p=st.b[y][x]; if(!p)continue;
-    const rot=p.s===topSide;
     const cx=G.ox+scX(x)*cell+cell/2, cy=G.oy+scY(y)*cell+cell/2;
-    pentagon(ctx,cx,cy,cell*0.84,cell*0.88,rot);
-    const g2=ctx.createLinearGradient(cx,cy-cell/2,cx,cy+cell/2);
-    g2.addColorStop(0,"#F7E8BE"); g2.addColorStop(1,"#EBD59F");
-    ctx.fillStyle=g2; ctx.fill();
-    ctx.strokeStyle="rgba(120,90,45,.85)"; ctx.lineWidth=1; ctx.stroke();
-    ctx.save(); ctx.translate(cx,cy); if(rot)ctx.rotate(Math.PI);
-    ctx.fillStyle=p.p?"#A5342B":"#241C12";
-    ctx.font=Math.round(cell*0.52)+'px "Hiragino Mincho ProN","Yu Mincho",serif';
-    ctx.textAlign="center"; ctx.textBaseline="middle";
-    ctx.fillText(p.p?NMP[p.t]:NM[p.t],0,cell*0.03);
-    ctx.restore();
+    drawKoma(ctx,cx,cy,cell*0.84,cell*0.88,p.s===topSide,p.p?NMP[p.t]:NM[p.t],p.p,false);
   }
   // 行けるところ
   for(const d of curDests){
@@ -614,23 +676,6 @@ function toast(t){ const e=$("toast"); e.textContent=t; e.classList.add("on"); c
 /* 知らせは盤の上に出るので、窓を開けるときは先に消す */
 function hideToast(){ const e=$("toast"); clearTimeout(e._t); e.classList.remove("on"); }
 
-function renderHands(){
-  const st=view(), topSide=mySide^1;
-  for(const[elid,s]of[["handTop",topSide],["handBottom",mySide]]){
-    const el=$(elid); el.innerHTML="";
-    let any=false;
-    for(const t of HAND_ORDER){
-      const n=st.h[s][t]||0; if(!n)continue; any=true;
-      const b=document.createElement("button");
-      b.className="hk"+(s===topSide?" g":"")+(selDrop&&selDrop.s===s&&selDrop.t===t?" sel":"");
-      b.innerHTML=NM[t]+(n>1?'<span class="n">'+n+"</span>":"");
-      if(st.t!==s) b.disabled=true;
-      b.onclick=()=>{ sel=null; selDrop={s,t}; pFilter=null; render(); };
-      el.appendChild(b);
-    }
-    if(!any){ const d=document.createElement("span"); d.className="hand-empty"; d.textContent=(s===0?"先手":"後手")+" 持駒なし"; el.appendChild(d); }
-  }
-}
 function renderSheet(){
   const el=$("list"); el.innerHTML="";
   if(!R.info.length){
@@ -745,7 +790,7 @@ function render(){
   R=replay();
   if(editIdx>=moves.length) editIdx=-1;
   recomputeDests();
-  renderHands(); renderSheet(); renderSuggest(); renderFilter();
+  renderSheet(); renderSuggest(); renderFilter();
   layout(); draw();
   $("tesuu").textContent=moves.length+"手";
   $("banner").classList.toggle("on",editIdx>=0);
@@ -768,8 +813,19 @@ function commit(m){
 }
 cv.addEventListener("click",e=>{
   const r=cv.getBoundingClientRect();
-  const sq=sqAt(e.clientX-r.left,e.clientY-r.top); if(!sq)return;
+  const px=e.clientX-r.left, py=e.clientY-r.top;
   const st=view();
+  // 駒台の駒を押したとき
+  for(const k of kdHit){
+    if(px>=k.x&&px<=k.x+k.w&&py>=k.y&&py<=k.y+k.h){
+      if(st.t!==k.s) return;                       // 手番でないほうの駒台は押しても何もしない
+      sel=null; pFilter=null;
+      selDrop=(selDrop&&selDrop.s===k.s&&selDrop.t===k.t)? null : {s:k.s,t:k.t};
+      render(); return;
+    }
+  }
+  const sq=sqAt(px,py);
+  if(!sq){ if(sel||selDrop){ sel=null; selDrop=null; render(); } return; }
   if(selDrop){
     if(dropOk(st,selDrop.t,sq.x,sq.y)) commit({drop:selDrop.t,to:sq,promote:false});
     else { selDrop=null; render(); }
@@ -1004,6 +1060,10 @@ window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(()=>{layo
 if("serviceWorker" in navigator && location.protocol.indexOf("http")===0)
   window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 load(); render();
+/* 埋め込みフォントが使えるようになってから描きなおす */
+if(document.fonts&&document.fonts.load){
+  document.fonts.load('40px "Koma"',"歩").then(()=>{layout();draw();}).catch(()=>{});
+}
 </script>
 </body>
 </html>
