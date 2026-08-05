@@ -178,6 +178,14 @@ canvas{display:block;touch-action:manipulation}
 .gl-row.cur .gl-d{font-weight:700}
 .gl-row.cur .gl-d::before{content:"●";color:var(--shu);font-size:9px;vertical-align:2px;margin-right:5px}
 .gl-del{font-family:inherit;font-size:11px;padding:6px 10px;border:1px solid var(--shu);background:transparent;color:var(--shu);border-radius:2px;flex:0 0 auto}
+.gl-name{font-family:inherit;font-size:11px;padding:6px 10px;border:1px solid var(--koma-e);background:transparent;color:var(--sumi);border-radius:2px;flex:0 0 auto}
+/* 名前を入れる窓。16px より小さいと iOS が勝手に拡大するので下げない */
+.nm-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;text-align:left}
+.nm-row span{font-size:13px;color:var(--usu);letter-spacing:.1em;width:3.2em;flex:0 0 auto}
+.nm-row input{
+  flex:1;min-width:0;font-family:inherit;font-size:16px;padding:9px 10px;
+  border:1px solid var(--koma-e);border-radius:2px;background:#fff;color:var(--sumi);
+}
 
 /* ---- モーダル ---- */
 .modal{position:fixed;inset:0;background:rgba(35,29,22,.55);display:none;align-items:center;justify-content:center;z-index:9;padding:16px}
@@ -242,6 +250,12 @@ canvas{display:block;touch-action:manipulation}
 <div class="modal" id="ask"><div class="sheet2">
   <p id="askText"></p>
   <div class="col" id="askBtns"></div>
+</div></div>
+<div class="modal" id="namem"><div class="sheet2">
+  <p>名前をつける</p>
+  <label class="nm-row"><span>自分</span><input id="nmMe" type="text" maxlength="12" placeholder="じぶん" enterkeyhint="done"></label>
+  <label class="nm-row"><span>相手</span><input id="nmOpp" type="text" maxlength="12" placeholder="あいて" enterkeyhint="done"></label>
+  <div class="row"><button class="p" id="nmOk">決定</button><button id="nmNo" class="ghost">やめる</button></div>
 </div></div>
 <div class="modal" id="glist"><div class="sheet3">
   <div class="gl-head"><span>棋譜</span><button id="glClose">閉じる</button></div>
@@ -518,7 +532,7 @@ function suggest(st,opt){
   return out.slice(0,opt.limit||12);
 }
 /* ==================== 状態 ==================== */
-let games=[], curId=null;                 // 棋譜の一覧と、いま開いている棋譜
+let games=[], curId=null, lastMyName="";  // 棋譜の一覧と、いま開いている棋譜と、自分の名前
 let moves=[], mySide=0, result=null;      // いま開いている棋譜の中身
 let editIdx=-1, selCard=-1, sel=null, selDrop=null, pending=null;
 let sgPage=0, curDests=[];
@@ -758,7 +772,7 @@ function renderTurn(){
     el.innerHTML=
       '<span class="mk">'+(side===0?"▲":"△")+"</span>"+
       '<span class="who">'+(side===0?"先手":"後手")+(on?"の番":"")+"</span>"+
-      '<span class="sub">'+(side===mySide?"自分":"相手")+"</span>"+
+      '<span class="sub">'+(nameOf(side)||(side===mySide?"自分":"相手"))+"</span>"+
       (on? '<span class="now">'+(idx+1)+"手目</span>" : "");
   }
 }
@@ -921,7 +935,21 @@ function askModal(text,btns){
 }
 /* ==================== 棋譜の一覧 ==================== */
 /* 棋譜は消さずに貯める。「新しい棋譜」を始めても前のものは残る。 */
-function newGame(){ const t=Date.now(); return {id:t.toString(36)+Math.random().toString(36).slice(2,6),created:t,updated:t,moves:[],mySide:0,result:null}; }
+function newGame(){
+  const t=Date.now();
+  // 自分の名前は前の棋譜から引き継ぐ。相手は毎回変わるので空にする。
+  return {id:t.toString(36)+Math.random().toString(36).slice(2,6),created:t,updated:t,
+          moves:[],mySide:0,result:null,me:lastMyName||"",opp:""};
+}
+/* side（0=先手 1=後手）の名前。入っていなければ空 */
+function nameOf(side,g){ g=g||curGame()||{}; return ((side===mySide? g.me : g.opp)||"").trim(); }
+function gameTitle(g){
+  const a=(g.me||"").trim(), b=(g.opp||"").trim();
+  if(a&&b) return a+" ー "+b;
+  if(a) return a;
+  if(b) return "対 "+b;
+  return fmtDate(g.created);
+}
 function curGame(){ return games.find(g=>g.id===curId); }
 function pullGame(){ const g=curGame(); if(!g)return; moves=g.moves; mySide=g.mySide; result=g.result; }
 function openGame(id){
@@ -950,18 +978,22 @@ function renderGameList(){
     const row=document.createElement("div");
     row.className="gl-row"+(g.id===curId?" cur":"");
     const open=document.createElement("button"); open.className="gl-open";
-    const d=document.createElement("div"); d.className="gl-d"; d.textContent=fmtDate(g.created);
+    const d=document.createElement("div"); d.className="gl-d"; d.textContent=gameTitle(g);
     const s=document.createElement("div"); s.className="gl-s";
     const res=g.result==="win"?"勝ち":g.result==="lose"?"負け":g.result==="draw"?"引き分け":"";
     const holes=g.moves.filter(m=>m.k==="hole").length;
-    s.textContent=[(g.mySide===0?"自分＝先手":"自分＝後手"),g.moves.length+"手",res,holes?"未記入"+holes:""].filter(Boolean).join("　");
+    s.textContent=[fmtDate(g.created),(g.mySide===0?"自分＝先手":"自分＝後手"),
+                   g.moves.length+"手",res,holes?"未記入"+holes:""].filter(Boolean).join("　");
     open.appendChild(d); open.appendChild(s);
     open.onclick=()=>openGame(g.id);
     row.appendChild(open);
+    const nb=document.createElement("button"); nb.className="gl-name"; nb.textContent="名前";
+    nb.onclick=()=>openNameEdit(g.id);
+    row.appendChild(nb);
     const del=document.createElement("button"); del.className="gl-del"; del.textContent="削除";
     del.onclick=()=>{
       $("glist").classList.remove("on");
-      askModal(fmtDate(g.created)+"の棋譜（"+g.moves.length+"手）を削除します。",[
+      askModal(gameTitle(g)+"（"+g.moves.length+"手）を削除します。",[
         {t:"削除",cls:"p",fn:()=>{ deleteGame(g.id); $("glist").classList.add("on"); }},
         {t:"中止",cls:"ghost",fn:()=>{ $("glist").classList.add("on"); }}
       ]);
@@ -970,6 +1002,28 @@ function renderGameList(){
     box.appendChild(row);
   }
 }
+let nameTarget=null;
+function openNameEdit(id){
+  const g=games.find(x=>x.id===id); if(!g)return;
+  nameTarget=id;
+  $("nmMe").value=g.me||""; $("nmOpp").value=g.opp||"";
+  $("glist").classList.remove("on");
+  $("namem").classList.add("on");
+  setTimeout(()=>{ try{ $("nmMe").focus(); }catch(e){} },60);
+}
+function closeNameEdit(keep){
+  const g=games.find(x=>x.id===nameTarget);
+  if(keep&&g){
+    g.me=$("nmMe").value.trim().slice(0,12);
+    g.opp=$("nmOpp").value.trim().slice(0,12);
+    if(g.me) lastMyName=g.me;        // 次の棋譜に引き継ぐ
+    g.updated=Date.now();
+  }
+  $("namem").classList.remove("on");
+  save(); renderGameList(); $("glist").classList.add("on"); render();
+}
+$("nmOk").onclick=()=>closeNameEdit(true);
+$("nmNo").onclick=()=>closeNameEdit(false);
 $("bList").onclick=()=>{ hideToast(); save(); renderGameList(); $("glist").classList.add("on"); };
 $("glClose").onclick=()=>$("glist").classList.remove("on");
 $("glNew").onclick=startNewGame;
@@ -991,8 +1045,8 @@ function kifText(){
   const d=new Date(), p2=n=>String(n).padStart(2,"0");
   let s="#KIF version=2.0 encoding=UTF-8\n";
   s+="開始日時："+d.getFullYear()+"/"+p2(d.getMonth()+1)+"/"+p2(d.getDate())+"\n";
-  s+="先手："+(mySide===0?"わたし":"あいて")+"\n";
-  s+="後手："+(mySide===1?"わたし":"あいて")+"\n";
+  s+="先手："+(nameOf(0)||(mySide===0?"わたし":"あいて"))+"\n";
+  s+="後手："+(nameOf(1)||(mySide===1?"わたし":"あいて"))+"\n";
   s+="手数----指手---------消費時間--\n";
   R.info.forEach((inf,i)=>{ s+=String(i+1).padStart(4," ")+" "+padMove(inf.kif)+"( 0:00/00:00:00)\n"; });
   const n=moves.length;
@@ -1009,7 +1063,10 @@ function kifText(){
 }
 function fname(){
   const d=new Date(), p2=n=>String(n).padStart(2,"0");
-  return "kifu_"+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+"_"+p2(d.getHours())+p2(d.getMinutes())+".kif";
+  // 相手の名前を入れて探しやすくする。ファイル名に使えない字は落とす
+  const opp=((curGame()||{}).opp||"").replace(/[\\/:*?"<>|.\s]/g,"").slice(0,12);
+  return "kifu_"+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+"_"+p2(d.getHours())+p2(d.getMinutes())
+         +(opp?"_"+opp:"")+".kif";
 }
 async function doExport(after){
   const text=kifText(), name=fname();
@@ -1048,13 +1105,13 @@ const KEY="kifu-note-v3";
 function save(){
   const g=curGame();
   if(g){ g.moves=moves; g.mySide=mySide; g.result=result; g.updated=Date.now(); }
-  try{ localStorage.setItem(KEY,JSON.stringify({games,curId})); }
+  try{ localStorage.setItem(KEY,JSON.stringify({games,curId,lastMyName})); }
   catch(e){ toast("保存できませんでした。古い棋譜を削除してください"); }
 }
 function load(){
   try{
     const d=JSON.parse(localStorage.getItem(KEY)||"null");
-    if(d&&Array.isArray(d.games)&&d.games.length){ games=d.games; curId=d.curId; }
+    if(d&&Array.isArray(d.games)&&d.games.length){ games=d.games; curId=d.curId; lastMyName=d.lastMyName||""; }
   }catch(e){}
   if(!games.length){
     // 一局しか持てなかった頃の保存を引き継ぐ
