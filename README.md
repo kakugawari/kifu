@@ -34,12 +34,16 @@
 
 ## ホーム画面に入れる
 
-HTTPS で配信すれば PWA として動きます。ホーム画面に追加するとアプリとして開き、
+公開先はここです。
+
+**https://kakugawari.github.io/kifu/**
+
+スマホでこのURLを開いて「ホーム画面に追加」すると、アプリとして開きます。
 一式がキャッシュされるので**対局場で電波が悪くても開けます**。
 
-GitHub Pages 用のワークフローを `.github/workflows/pages.yml` に置いてあります。
-リポジトリの Settings → Pages → Source を「GitHub Actions」にすると `main` への push で公開されます。
-設定しないかぎり何も公開されません。
+配信は GitHub Pages の「Deploy from a branch」で行っています。
+どのブランチから配信するかは Settings → Pages で切り替えます。
+`.github/workflows/test.yml` はテストを流すだけで、配信には関わりません。
 
 ファイルを直接開く（`file://`）場合、アプリとしては動きますがオフラインキャッシュは効きません。
 サービスワーカーが `file://` では登録できないためです。
