@@ -1,0 +1,83 @@
+const fs=require("fs");
+const html=fs.readFileSync(__dirname+"/../index.html","utf8");
+const js=html.split("<script>")[1].split("</script>")[0];
+const core=js.split("/* ==================== 状態 ====================")[0];
+const mod={};
+new Function("exports", core+"\nObject.assign(exports,{initState,cl,isLegal,applyMove,allMoves,destsFrom,attacksFrom,dropOk,mustPromo,moveInfo,suggest,mkey,bookNext,coverage,givesCheck,kingSq,xOf,yOf,fileOf,rankOf,BOOK,NM});")(mod);
+const M=mod;
+let fail=0;
+const ok=(c,msg)=>{ if(!c){console.log("NG "+msg);fail++;} else console.log("ok "+msg); };
+
+// --- 1. 初期局面の合法手は30通り ---
+let st=M.initState();
+const first=M.allMoves(st);
+ok(first.length===30, "初期局面の合法手 = "+first.length+" (期待 30)");
+
+// --- 2. 定跡7ラインが全部最後まで合法か ---
+const key2m=k=>({from:{x:M.xOf(+k[0]),y:M.yOf(+k[1])},to:{x:M.xOf(+k[2]),y:M.yOf(+k[3])},promote:k.length>4});
+M.BOOK.forEach((line,li)=>{
+  let s=M.initState(), bad=null;
+  line.forEach((k,i)=>{ if(bad!==null)return; const m=key2m(k); if(!M.isLegal(s,m)){bad=i;return;} M.applyMove(s,m); });
+  ok(bad===null, "定跡ライン"+li+" 全"+line.length+"手が合法"+(bad!==null?" (NG at "+(bad+1)+"手目 "+line[bad]+")":""));
+});
+
+// --- 3. 二歩・行き所のない駒 ---
+st=M.initState();
+ok(!M.dropOk(st,"FU",0,4), "二歩は打てない(9筋に歩あり)");
+ok(M.mustPromo("KE",0,1)&&M.mustPromo("FU",0,0)&&!M.mustPromo("GI",0,0), "行き所のない駒の判定");
+
+// --- 4. 「同」の表記 ---
+// ▲7六歩 △3四歩 ▲2二角成 △同銀
+st=M.initState();
+const seq=["7776","3334","8822+","3122"];
+let prevTo=null, disp=[];
+for(const k of seq){ const m=key2m(k); const inf=M.moveInfo(st,m,prevTo); disp.push(inf.disp+"|"+inf.kif); M.applyMove(st,m); prevTo=m.to; }
+ok(disp[2].startsWith("２二角成"), "3手目 = "+disp[2]);
+ok(disp[3].startsWith("同銀"), "4手目 = "+disp[3]);
+ok(disp[3].split("|")[1]==="同　銀(31)", "4手目KIF = "+disp[3].split("|")[1]);
+
+// --- 5. 王手判定 ---
+st=M.initState();
+for(const k of ["7776","3334","8822+"]) { M.applyMove(st,key2m(k)); }
+// 2二馬は後手の玉(5一)に王手ではない
+ok(!M.givesCheck(st,0), "２二角成は王手ではない");
+
+// --- 6. suggest: 取りかえしが最上位に来るか ---
+// ▲7六歩 △3四歩 ▲2二角成 のあと、後手は同銀 or 同飛? 2二には先手の馬
+st=M.initState(); prevTo=null;
+for(const k of ["7776","3334","8822+"]){ const m=key2m(k); M.applyMove(st,m); prevTo=m.to; }
+let sg=M.suggest(st,{prevTo,ply:3,limit:5});
+let top=sg.map(m=>M.moveInfo(st,m,prevTo).disp);
+ok(top[0]==="同銀"||top[0]==="同飛", "取りかえしが1番目: "+JSON.stringify(top));
+
+// --- 7. suggest: 序盤の定跡が上位に出るか ---
+st=M.initState();
+sg=M.suggest(st,{prevTo:null,ply:0,bookSet:new Set(M.bookNext([])),limit:3});
+top=sg.map(m=>M.moveInfo(st,m,null).disp);
+ok(top.includes("７六歩"), "初手の3択に▲７六歩: "+JSON.stringify(top));
+
+// --- 8. suggest: 駒でしぼる ---
+st=M.initState();
+sg=M.suggest(st,{prevTo:null,ply:0,pieceFilter:"GI",limit:9});
+ok(sg.length===4 && sg.every(m=>st.b[m.from.y][m.from.x].t==="GI"), "銀でしぼると4手: "+sg.length);
+sg=M.suggest(st,{prevTo:null,ply:0,pieceFilter:"KE",limit:9});
+ok(sg.length===0, "初期局面の桂は動けない(ボタンは無効になる): "+sg.length);
+
+// --- 9. suggest: あとの手との辻褄（穴うめ） ---
+// 局面: 初期。実際の3手目は ▲2二角成、4手目 △同銀 が入っているとき、
+// 3手目の穴に入るべきは ▲2二角成のみ（△同銀=31→22 が成立する手）
+st=M.initState();
+for(const k of ["7776","3334"]) M.applyMove(st,key2m(k));
+const rest=[{k:"m",...key2m("3122")}];
+sg=M.suggest(st,{prevTo:key2m("3334").to,ply:2,rest,limit:3});
+top=sg.map(m=>M.moveInfo(st,m,key2m("3334").to).disp);
+ok(top[0]==="２二角成", "穴うめ候補の1番目 = "+JSON.stringify(top));
+
+// --- 10. 速度 ---
+st=M.initState();
+for(const k of M.BOOK[1]) if(M.isLegal(st,key2m(k))) M.applyMove(st,key2m(k));
+let t0=Date.now(); for(let i=0;i<20;i++) M.suggest(st,{ply:14,limit:12}); let ms=(Date.now()-t0)/20;
+ok(ms<40, "suggest 1回 = "+ms.toFixed(1)+"ms");
+
+console.log(fail? "\n=== FAIL "+fail+" ===" : "\n=== ALL PASS ===");
+process.exit(fail?1:0);

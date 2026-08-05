@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#EFE7D6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="棋譜ノート">
+<title>棋譜ノート</title>
+<style>
+:root{
+  --sumi:#231D16; --kami:#EFE7D6; --kami2:#E4D9C2;
+  --ban:#E0BC7E; --ban-line:#5E4526; --koma:#F2DFB0; --koma-e:#C9A96E;
+  --shu:#B23A2E; --ai:#2C4A63; --usu:#8A7A62;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%}
+body{
+  background:var(--kami);
+  background-image:radial-gradient(circle at 20% 10%,rgba(255,255,255,.5),transparent 60%),
+                   radial-gradient(circle at 80% 90%,rgba(150,120,80,.10),transparent 55%);
+  color:var(--sumi);
+  font-family:"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",serif;
+  display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  overflow:hidden;
+}
+header{display:flex;align-items:center;gap:.6em;padding:7px 12px 3px;flex:0 0 auto}
+h1{font-size:16px;margin:0;letter-spacing:.2em;font-weight:600}
+.tesuu{font-size:12px;color:var(--usu);letter-spacing:.1em;margin-left:auto;font-family:system-ui,sans-serif}
+.side-pick{display:flex;gap:4px;align-items:center}
+.sp-lab{font-size:11px;color:var(--usu);letter-spacing:.08em;margin-right:1px}
+.side-pick button{
+  font-family:inherit;font-size:11.5px;padding:4px 9px;border-radius:2px;
+  border:1px solid var(--koma-e);background:transparent;color:var(--usu);letter-spacing:.08em;
+}
+.side-pick button.on{background:var(--sumi);border-color:var(--sumi);color:var(--kami)}
+
+/* ---- 盤まわり ---- */
+#stage{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 8px}
+#handTop,#handBottom{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:5px;min-height:32px;align-items:center;padding:2px}
+#handTop{justify-content:flex-start}
+#handBottom{justify-content:flex-end}
+#boardwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.hk{
+  font-family:inherit;font-size:16px;line-height:1;padding:5px 8px 6px;border-radius:2px;
+  border:1px solid var(--koma-e);background:var(--koma);color:var(--sumi);
+}
+.hk[disabled]{opacity:.4}
+.hk.sel{background:var(--sumi);color:var(--koma);border-color:var(--sumi)}
+.hk .n{font-size:10px;margin-left:2px;vertical-align:super;font-family:system-ui,sans-serif}
+.hk.g{transform:rotate(180deg)}
+.hand-empty{font-size:11px;color:var(--usu);letter-spacing:.1em}
+canvas{display:block;touch-action:manipulation}
+
+/* ---- 編集中バナー ---- */
+#banner{
+  flex:0 0 auto;margin:5px 10px 0;padding:5px 10px;border-left:3px solid var(--shu);
+  background:rgba(178,58,46,.07);font-size:12.5px;line-height:1.5;
+  display:none;align-items:center;gap:8px;
+}
+#banner.on{display:flex}
+#banner button{margin-left:auto;font-family:inherit;font-size:11px;padding:3px 9px;border:1px solid var(--shu);background:transparent;color:var(--shu);border-radius:2px}
+
+/* ---- この手かな？（3択） ---- */
+#suggest{flex:0 0 auto;padding:5px 10px 0}
+.sg-label{font-size:11.5px;color:var(--usu);letter-spacing:.1em;display:block;margin-bottom:4px}
+.sg-row{display:flex;gap:6px;align-items:stretch}
+.sg{
+  flex:1;font-family:inherit;font-size:17px;padding:9px 4px 8px;border-radius:3px;min-width:0;
+  border:1px solid var(--ai);background:rgba(44,74,99,.07);color:var(--ai);letter-spacing:.02em;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+}
+.sg small{font-family:system-ui,sans-serif;font-size:9px;color:var(--usu)}
+.sg-more{
+  flex:0 0 auto;font-family:inherit;font-size:11px;padding:0 9px;border-radius:3px;
+  border:1px dashed var(--usu);background:transparent;color:var(--usu);line-height:1.3;
+}
+.sg-none{font-size:12px;color:var(--usu);letter-spacing:.08em;padding:6px 0}
+
+/* ---- 駒でさがす ---- */
+#filter{flex:0 0 auto;display:flex;gap:4px;padding:6px 10px 0}
+#filter button{
+  flex:1;font-family:inherit;font-size:15px;padding:6px 0 7px;border-radius:2px;min-width:0;
+  border:1px solid var(--koma-e);background:var(--koma);color:var(--sumi);
+}
+#filter button.on{background:var(--sumi);color:var(--koma);border-color:var(--sumi)}
+#filter button:disabled{opacity:.28}
+.f-label{font-size:11.5px;color:var(--usu);letter-spacing:.1em;padding:6px 10px 0;flex:0 0 auto}
+
+/* ---- 操作バー ---- */
+#bar{flex:0 0 auto;display:flex;gap:6px;padding:7px 10px 4px}
+#bar button{
+  flex:1;font-family:inherit;font-size:13px;letter-spacing:.06em;padding:9px 0;
+  border:1px solid var(--koma-e);background:var(--koma);color:var(--sumi);border-radius:2px;
+}
+#bar button:disabled{opacity:.4}
+#bar button.q{background:transparent;border-style:dashed;color:var(--shu);border-color:var(--shu)}
+
+/* ---- 棋譜用紙 ---- */
+#sheet{
+  flex:0 0 auto;height:72px;margin:3px 0 0;padding:3px 10px 6px;
+  overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+}
+#list{display:flex;gap:0;height:100%;align-items:stretch}
+.cell{
+  min-width:58px;border-right:1px solid var(--kami2);
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  padding:3px 4px 0;background:transparent;font-family:inherit;color:var(--sumi);
+}
+.cell:first-child{border-left:1px solid var(--kami2)}
+.cell .num{font-size:9.5px;color:var(--usu);font-family:system-ui,sans-serif}
+.cell .mv{font-size:16px;margin-top:2px;white-space:nowrap;line-height:1.2}
+.cell .frm{font-size:8.5px;color:var(--usu);font-family:system-ui,sans-serif;margin-top:1px}
+.cell .mv .mk{font-size:11px;vertical-align:1px}
+.cell.gote .mv{color:var(--ai)}
+.cell.hole{background:rgba(178,58,46,.06)}
+.cell.hole .mv{color:var(--shu)}
+.cell.bad .mv{color:var(--shu);text-decoration:line-through}
+.cell.sel{background:var(--sumi)}
+.cell.sel .mv,.cell.sel .num,.cell.sel .frm{color:var(--kami)}
+.cell.editing{outline:2px solid var(--shu);outline-offset:-2px}
+.sheet-empty{font-size:12px;color:var(--usu);letter-spacing:.1em;align-self:center;padding-left:4px}
+
+#cardbar{flex:0 0 auto;display:none;gap:5px;padding:0 10px 7px}
+#cardbar.on{display:flex}
+#cardbar button{flex:1;font-family:inherit;font-size:12px;padding:8px 0;border:1px solid var(--koma-e);background:transparent;border-radius:2px;color:var(--sumi)}
+#cardbar button.del{color:var(--shu);border-color:var(--shu)}
+#cardbar button:disabled{opacity:.32}
+
+/* ---- モーダル ---- */
+.modal{position:fixed;inset:0;background:rgba(35,29,22,.55);display:none;align-items:center;justify-content:center;z-index:9;padding:16px}
+.modal.on{display:flex}
+.sheet2{background:var(--kami);padding:20px 18px 16px;width:min(330px,88vw);border-radius:3px;text-align:center}
+.sheet2 p{margin:0 0 14px;font-size:14.5px;letter-spacing:.06em;line-height:1.6}
+.sheet2 .row{display:flex;gap:8px}
+.sheet2 .col{display:flex;flex-direction:column;gap:8px}
+.sheet2 button{flex:1;font-family:inherit;font-size:15px;padding:12px 0;border-radius:2px;border:1px solid var(--koma-e);background:var(--koma);color:var(--sumi)}
+.sheet2 button.p{background:var(--sumi);color:var(--kami);border-color:var(--sumi)}
+.sheet2 button.ghost{background:transparent;color:var(--usu)}
+/* 盤の上に出す。棋譜の札に かぶらないように */
+#toast{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);background:var(--sumi);color:var(--kami);
+  font-size:12.5px;padding:9px 16px;border-radius:2px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:20;letter-spacing:.05em;max-width:84vw;text-align:center;line-height:1.5}
+#toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>棋譜ノート</h1>
+  <div class="side-pick">
+    <span class="sp-lab">わたし</span>
+    <button id="mySen" class="on">先手</button>
+    <button id="myGo">後手</button>
+  </div>
+  <div class="tesuu" id="tesuu">0手</div>
+</header>
+
+<div id="stage">
+  <div id="handTop"></div>
+  <div id="boardwrap"><canvas id="bd"></canvas></div>
+  <div id="handBottom"></div>
+</div>
+
+<div id="banner"><span id="bantext"></span><button id="banstop">やめる</button></div>
+<div id="suggest"></div>
+<div class="f-label">どの駒をうごかした？</div>
+<div id="filter"></div>
+
+<div id="bar">
+  <button id="bUndo">まった</button>
+  <button id="bHole" class="q">わからない</button>
+  <button id="bKif">かきだす</button>
+  <button id="bNew">あたらしく</button>
+</div>
+
+<div id="sheet"><div id="list"></div></div>
+<div id="cardbar">
+  <button id="cFix">なおす</button>
+  <button id="cIns">まえに1手</button>
+  <button id="cHole">？にする</button>
+  <button id="cDel" class="del">けす</button>
+</div>
+
+<div class="modal" id="promo"><div class="sheet2">
+  <p id="promoText">成りますか</p>
+  <div class="row"><button class="p" id="pYes">成った</button><button id="pNo">成らない</button></div>
+</div></div>
+<div class="modal" id="ask"><div class="sheet2">
+  <p id="askText"></p>
+  <div class="col" id="askBtns"></div>
+</div></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ==================== 駒と盤のルール ==================== */
+const NM ={FU:"歩",KY:"香",KE:"桂",GI:"銀",KI:"金",KA:"角",HI:"飛",OU:"玉"};
+const NMP={FU:"と",KY:"杏",KE:"圭",GI:"全",KA:"馬",HI:"龍"};
+const KIF ={FU:"歩",KY:"香",KE:"桂",GI:"銀",KI:"金",KA:"角",HI:"飛",OU:"玉"};
+const KIFP={FU:"と",KY:"成香",KE:"成桂",GI:"成銀",KA:"馬",HI:"龍"};
+const ZEN="０１２３４５６７８９", KAN="〇一二三四五六七八九";
+const HAND_ORDER=["HI","KA","KI","GI","KE","KY","FU"];
+const TYPE_ORDER=["FU","KY","KE","GI","KI","KA","HI","OU"];
+/* 駒の値打ち（候補の並べかえ用のめやす） */
+const VAL ={FU:1,KY:3,KE:4,GI:6,KI:7,KA:9,HI:11,OU:60};
+const VALP={FU:7,KY:6,KE:6,GI:7,KI:7,KA:12,HI:14,OU:60};
+const val=p=>p.p?VALP[p.t]:VAL[p.t];
+
+const STEP={
+  FU:[[0,-1]], KE:[[-1,-2],[1,-2]],
+  GI:[[0,-1],[-1,-1],[1,-1],[-1,1],[1,1]],
+  KI:[[0,-1],[-1,-1],[1,-1],[-1,0],[1,0],[0,1]],
+  OU:[[0,-1],[-1,-1],[1,-1],[-1,0],[1,0],[0,1],[-1,1],[1,1]]
+};
+const SLIDE={KY:[[0,-1]],KA:[[-1,-1],[1,-1],[-1,1],[1,1]],HI:[[0,-1],[0,1],[-1,0],[1,0]]};
+// x=0 は9筋, x=8 は1筋 / y=0 は一段目(後手側)
+const fileOf=x=>9-x, rankOf=y=>y+1, xOf=f=>9-f, yOf=r=>r-1;
+
+function initState(){
+  const b=Array.from({length:9},()=>Array(9).fill(null));
+  const back=["KY","KE","GI","KI","OU","KI","GI","KE","KY"];
+  for(let x=0;x<9;x++){
+    b[0][x]={t:back[x],s:1,p:false};
+    b[2][x]={t:"FU",s:1,p:false};
+    b[6][x]={t:"FU",s:0,p:false};
+    b[8][x]={t:back[x],s:0,p:false};
+  }
+  b[1][xOf(8)]={t:"HI",s:1,p:false}; b[1][xOf(2)]={t:"KA",s:1,p:false};
+  b[7][xOf(8)]={t:"KA",s:0,p:false}; b[7][xOf(2)]={t:"HI",s:0,p:false};
+  return {b,h:[{},{}],t:0};
+}
+const cl=st=>({b:st.b.map(r=>r.map(p=>p?{t:p.t,s:p.s,p:p.p}:null)),h:[{...st.h[0]},{...st.h[1]}],t:st.t});
+const inZone=(s,y)=> s===0? y<=2 : y>=6;
+const canPromoType=t=> t!=="KI"&&t!=="OU";
+function mustPromo(t,s,y){
+  if(t==="FU"||t==="KY") return s===0? y===0 : y===8;
+  if(t==="KE") return s===0? y<=1 : y>=7;
+  return false;
+}
+/* その駒がにらんでいるマス（自分の駒がいるマスも含む＝守りの計算に使う） */
+function attacksFrom(st,x,y){
+  const p=st.b[y][x]; if(!p) return [];
+  const sg=p.s===0?1:-1;
+  let steps=[],slides=[];
+  if(p.p){
+    if(p.t==="KA"){slides=SLIDE.KA;steps=[[0,-1],[0,1],[-1,0],[1,0]];}
+    else if(p.t==="HI"){slides=SLIDE.HI;steps=[[-1,-1],[1,-1],[-1,1],[1,1]];}
+    else steps=STEP.KI;
+  }else{
+    if(SLIDE[p.t]) slides=SLIDE[p.t]; else steps=STEP[p.t];
+  }
+  const out=[];
+  for(const[dx,dy]of steps){
+    const nx=x+dx,ny=y+dy*sg;
+    if(nx<0||nx>8||ny<0||ny>8)continue;
+    out.push({x:nx,y:ny});
+  }
+  for(const[dx,dy]of slides){
+    let nx=x+dx,ny=y+dy*sg;
+    while(nx>=0&&nx<=8&&ny>=0&&ny<=8){
+      out.push({x:nx,y:ny});
+      if(st.b[ny][nx])break;
+      nx+=dx; ny+=dy*sg;
+    }
+  }
+  return out;
+}
+function destsFrom(st,x,y){
+  const p=st.b[y][x]; if(!p) return [];
+  return attacksFrom(st,x,y).filter(d=>{const q=st.b[d.y][d.x]; return !(q&&q.s===p.s);});
+}
+function dropOk(st,t,x,y){
+  if(st.b[y][x])return false;
+  if(mustPromo(t,st.t,y))return false;
+  if(t==="FU"){ for(let i=0;i<9;i++){const q=st.b[i][x]; if(q&&q.s===st.t&&q.t==="FU"&&!q.p)return false;} }
+  return true;
+}
+function isLegal(st,m){
+  if(m.drop){
+    if(!(st.h[st.t][m.drop]>0))return false;
+    return dropOk(st,m.drop,m.to.x,m.to.y);
+  }
+  const p=st.b[m.from.y][m.from.x];
+  if(!p||p.s!==st.t)return false;
+  if(!destsFrom(st,m.from.x,m.from.y).some(d=>d.x===m.to.x&&d.y===m.to.y))return false;
+  if(m.promote){
+    if(p.p||!canPromoType(p.t))return false;
+    if(!(inZone(p.s,m.from.y)||inZone(p.s,m.to.y)))return false;
+  }else if(mustPromo(p.t,p.s,m.to.y))return false;
+  return true;
+}
+function applyMove(st,m){
+  if(m.drop){
+    st.h[st.t][m.drop]--; st.b[m.to.y][m.to.x]={t:m.drop,s:st.t,p:false};
+  }else{
+    const p=st.b[m.from.y][m.from.x];
+    const cap=st.b[m.to.y][m.to.x];
+    if(cap) st.h[st.t][cap.t]=(st.h[st.t][cap.t]||0)+1;
+    st.b[m.from.y][m.from.x]=null;
+    st.b[m.to.y][m.to.x]={t:p.t,s:p.s,p:p.p||!!m.promote};
+  }
+  st.t^=1;
+}
+function allMoves(st){
+  const out=[];
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++){
+    const p=st.b[y][x]; if(!p||p.s!==st.t)continue;
+    for(const d of destsFrom(st,x,y)){
+      const must=mustPromo(p.t,p.s,d.y);
+      const can=!p.p&&canPromoType(p.t)&&(inZone(p.s,y)||inZone(p.s,d.y));
+      if(!must) out.push({from:{x,y},to:d,promote:false});
+      if(can) out.push({from:{x,y},to:d,promote:true});
+    }
+  }
+  for(const t of HAND_ORDER){
+    if(!(st.h[st.t][t]>0))continue;
+    for(let y=0;y<9;y++)for(let x=0;x<9;x++) if(dropOk(st,t,x,y)) out.push({drop:t,to:{x,y},promote:false});
+  }
+  return out;
+}
+/* 各マスを何枚でにらんでいるか */
+function coverage(st,side){
+  const c=Array.from({length:9},()=>Array(9).fill(0));
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++){
+    const p=st.b[y][x]; if(!p||p.s!==side)continue;
+    for(const d of attacksFrom(st,x,y)) c[d.y][d.x]++;
+  }
+  return c;
+}
+function kingSq(st,s){
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++){const p=st.b[y][x]; if(p&&p.s===s&&p.t==="OU")return{x,y};}
+  return null;
+}
+function givesCheck(st,side){ // side が相手に王手をかけているか
+  const k=kingSq(st,side^1); if(!k)return false;
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++){
+    const p=st.b[y][x]; if(!p||p.s!==side)continue;
+    for(const d of attacksFrom(st,x,y)) if(d.x===k.x&&d.y===k.y) return true;
+  }
+  return false;
+}
+/* ==================== 棋譜の表記 ==================== */
+function moveInfo(st,m,prevTo){
+  const side=st.t;
+  const t=m.drop||st.b[m.from.y][m.from.x].t;
+  const pr=m.drop?false:st.b[m.from.y][m.from.x].p;
+  const nm=pr?NMP[t]:NM[t];
+  const knm=pr?KIFP[t]:KIF[t];
+  const same=prevTo&&prevTo.x===m.to.x&&prevTo.y===m.to.y;
+  const sq=ZEN[fileOf(m.to.x)]+KAN[rankOf(m.to.y)];
+  let disp=(same?"同":sq)+nm, kif=(same?"同　":sq)+knm;
+  if(m.promote){disp+="成";kif+="成";}
+  if(m.drop){disp+="打";kif+="打";}
+  const frm=m.drop?"":""+fileOf(m.from.x)+rankOf(m.from.y);
+  if(!m.drop) kif+="("+frm+")";
+  return {side,disp,kif,frm};
+}
+/* ==================== 序盤の定跡（思い出しのヒント用） ==================== */
+const BOOK=[
+  ["7776","3334","2726","4344","2625","2233","3948","8242","5756","5162"],      // 対四間飛車
+  ["7776","8384","6978","3334","2726","8485","2625","2233","8877","3122","7988","7162","7733+","2233"], // 角換わり
+  ["7776","8384","7968","3334","6877","7162","2726","5354","4958","3142"],      // 矢倉
+  ["2726","8384","2625","8485","6978","4132","2524","2324","2824","8586","8786","8286"], // 相掛かり
+  ["7776","3334","6766","8384","2868","8485","8877","5142","5948","4232"],      // 四間飛車
+  ["5756","3334","2858","8384","5655","8485","5948","5162"],                    // 中飛車
+  ["7776","3334","2878","8384","6766","8485","8877","5142"]                     // 三間飛車
+];
+const mkey=m=> m.drop? null : ""+fileOf(m.from.x)+rankOf(m.from.y)+fileOf(m.to.x)+rankOf(m.to.y)+(m.promote?"+":"");
+function bookNext(keys){
+  const out=[];
+  for(const line of BOOK){
+    if(line.length<=keys.length)continue;
+    let ok=true;
+    for(let i=0;i<keys.length;i++) if(line[i]!==keys[i]){ok=false;break;}
+    if(ok&&!out.includes(line[keys.length])) out.push(line[keys.length]);
+  }
+  return out;
+}
+/* ==================== 「この手かな？」候補 ==================== */
+/*  子供の対局でよく出る手を上に持ってくる。
+    - 取りかえす手／タダ駒を取る手
+    - 成る手、王手
+    - 取られそうな駒を逃がす手
+    - 前に進む手、序盤は定跡
+    - 取られる場所にわざわざ置く手は下げる
+    あとの手がすでに入っているとき（？の穴うめ）は、
+    そのあとの手が全部成立するかを最優先で見る。                        */
+function suggest(st,opt){
+  opt=opt||{};
+  const me=st.t, opp=me^1;
+  let list=allMoves(st);
+  if(opt.pieceFilter) list=list.filter(m=>(m.drop||st.b[m.from.y][m.from.x].t)===opt.pieceFilter);
+  if(!list.length) return [];
+
+  const oppCov=coverage(st,opp), myCov=coverage(st,me);
+  const hanging={}; // いま取られそうな自分の駒
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++){
+    const p=st.b[y][x]; if(!p||p.s!==me)continue;
+    if(oppCov[y][x]>myCov[y][x]) hanging[x+","+y]=val(p);
+  }
+  const sg=me===0?1:-1;
+  const early=(opt.ply||0)<26;
+
+  // 一次採点（軽い）
+  let scored=list.map(m=>{
+    const src=m.drop?null:st.b[m.from.y][m.from.x];
+    const t=m.drop||src.t;
+    const cap=st.b[m.to.y][m.to.x];
+    let s=0;
+    if(cap){
+      s+=14+val(cap)*5;
+      if(opt.prevTo&&opt.prevTo.x===m.to.x&&opt.prevTo.y===m.to.y) s+=55; // 取りかえし
+      if(oppCov[m.to.y][m.to.x]===0) s+=18;                               // タダ取り
+    }
+    if(m.promote) s+=(t==="HI"||t==="KA")?26:(t==="FU"?15:9);
+    if(opt.bookSet&&opt.bookSet.has(mkey(m))) s+=70;
+    if(m.drop){
+      s-=10;
+      if(oppCov[m.to.y][m.to.x]===0) s+=4;
+    }else{
+      s+=(m.from.y-m.to.y)*sg*3;                     // 前に進む
+      const hv=hanging[m.from.x+","+m.from.y];
+      if(hv) s+=hv*2.5;                              // 取られそうな駒を逃がす
+      if(t==="OU") s+= early? 3 : -8;
+      if(t==="FU"&&early) s+=4;
+    }
+    return {m,t,s};
+  });
+  scored.sort((a,b)=>b.s-a.s);
+
+  // 二次採点（重いので上位だけ）
+  const top=scored.slice(0,26);
+  for(const e of top){
+    const s2=cl(st); applyMove(s2,e.m);
+    const landed=s2.b[e.m.to.y][e.m.to.x];
+    const oc=coverage(s2,opp), mc=coverage(s2,me);
+    if(oc[e.m.to.y][e.m.to.x]>mc[e.m.to.y][e.m.to.x]) e.s-=val(landed)*3.2; // 取られる所に置いた
+    if(givesCheck(s2,me)) e.s+=28;
+  }
+  // あとの手との辻褄（？の穴うめのとき）
+  if(opt.rest&&opt.rest.length){
+    for(const e of top){
+      const s2=cl(st); applyMove(s2,e.m); let bad=0;
+      for(const r of opt.rest){
+        if(r.k==="hole"){ s2.t^=1; continue; }
+        if(isLegal(s2,r)) applyMove(s2,r); else { bad++; s2.t^=1; }
+      }
+      e.s-=bad*500;
+    }
+  }
+  top.sort((a,b)=>b.s-a.s);
+
+  // 同じ駒ばかり並ばないように（絞りこみ中はそのまま）
+  const out=[];
+  if(opt.pieceFilter){ for(const e of top) out.push(e.m); }
+  else{
+    const used={};
+    for(const e of top){
+      const k=e.m.drop? "d"+e.m.drop : e.m.from.x+","+e.m.from.y;
+      used[k]=(used[k]||0)+1;
+      if(used[k]>2)continue;
+      out.push(e.m);
+    }
+  }
+  return out.slice(0,opt.limit||12);
+}
+/* ==================== 状態 ==================== */
+let moves=[], mySide=0, result=null;
+let editIdx=-1, selCard=-1, sel=null, selDrop=null, pending=null;
+let pFilter=null, sgPage=0, curDests=[];
+let R={pos:[initState()],info:[]};
+
+function replay(){
+  let st=initState(); const pos=[cl(st)], info=[]; let prevTo=null;
+  for(const m of moves){
+    if(m.k==="hole"){ info.push({hole:true}); st.t^=1; pos.push(cl(st)); prevTo=null; continue; }
+    if(!isLegal(st,m)){ info.push({bad:true,side:st.t}); st.t^=1; pos.push(cl(st)); prevTo=null; continue; }
+    info.push(moveInfo(st,m,prevTo)); applyMove(st,m); prevTo=m.to; pos.push(cl(st));
+  }
+  return {pos,info};
+}
+const viewIdx=()=> editIdx>=0? editIdx : moves.length;
+const view=()=> R.pos[viewIdx()];
+function lastTo(){
+  const vi=viewIdx(); if(vi===0)return null;
+  const inf=R.info[vi-1]; if(!inf||inf.hole||inf.bad)return null;
+  return moves[vi-1].to;
+}
+/* ==================== 盤の描画 ==================== */
+const cv=document.getElementById("bd"), ctx=cv.getContext("2d");
+let G={cell:40,ox:0,oy:0,W:0,H:0,m:0};
+/* 自分が後手なら盤をひっくり返す */
+const flip=()=>mySide===1;
+const scX=x=>flip()?8-x:x, scY=y=>flip()?8-y:y;
+const bdX=i=>flip()?8-i:i, bdY=j=>flip()?8-j:j;
+
+function layout(){
+  const wrap=document.getElementById("boardwrap");
+  const availW=Math.max(160,wrap.clientWidth);
+  const availH=Math.max(160,wrap.clientHeight);
+  const base=Math.max(190,Math.min(availW,availH));
+  const m=Math.round(base*0.055);
+  const cell=Math.floor((base-m)/9);
+  const W=cell*9+m, H=cell*9+m;
+  cv.style.width=W+"px"; cv.style.height=H+"px";
+  const dpr=Math.min(window.devicePixelRatio||1,3);
+  cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  G={cell,ox:0,oy:m,W,H,m};
+}
+function sqAt(cx,cy){
+  const i=Math.floor((cx-G.ox)/G.cell), j=Math.floor((cy-G.oy)/G.cell);
+  if(i<0||i>8||j<0||j>8)return null;
+  return {x:bdX(i),y:bdY(j)};
+}
+function pentagon(g,cx,cy,w,h,rot){
+  const hw=w/2,hh=h/2;
+  g.save(); g.translate(cx,cy); if(rot)g.rotate(Math.PI);
+  g.beginPath();
+  g.moveTo(0,-hh);
+  g.lineTo(hw*0.72,-hh*0.62);
+  g.lineTo(hw,hh);
+  g.lineTo(-hw,hh);
+  g.lineTo(-hw*0.72,-hh*0.62);
+  g.closePath(); g.restore();
+}
+function draw(){
+  const st=view(), cell=G.cell;
+  const topSide=mySide^1;
+  ctx.clearRect(0,0,G.W,G.H);
+  const grad=ctx.createLinearGradient(0,G.oy,G.W,G.H);
+  grad.addColorStop(0,"#E7C68B"); grad.addColorStop(.5,"#DFB877"); grad.addColorStop(1,"#E5C287");
+  ctx.fillStyle=grad; ctx.fillRect(G.ox,G.oy,cell*9,cell*9);
+  ctx.strokeStyle="rgba(94,69,38,.55)"; ctx.lineWidth=1;
+  for(let i=0;i<=9;i++){
+    ctx.beginPath(); ctx.moveTo(G.ox+i*cell+.5,G.oy); ctx.lineTo(G.ox+i*cell+.5,G.oy+9*cell); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(G.ox,G.oy+i*cell+.5); ctx.lineTo(G.ox+9*cell,G.oy+i*cell+.5); ctx.stroke();
+  }
+  ctx.strokeStyle="rgba(60,42,20,.9)"; ctx.lineWidth=1.6;
+  ctx.strokeRect(G.ox+.8,G.oy+.8,cell*9-1.6,cell*9-1.6);
+  ctx.fillStyle="rgba(60,42,20,.75)";
+  for(const[a,b]of[[3,3],[6,3],[3,6],[6,6]]){
+    ctx.beginPath(); ctx.arc(G.ox+a*cell,G.oy+b*cell,2.2,0,7); ctx.fill();
+  }
+  // 筋・段の数字
+  ctx.fillStyle="rgba(94,69,38,.85)";
+  ctx.font=Math.round(cell*0.30)+'px "Hiragino Mincho ProN",serif';
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  for(let i=0;i<9;i++) ctx.fillText(ZEN[fileOf(bdX(i))],G.ox+i*cell+cell/2,G.oy/2);
+  for(let j=0;j<9;j++) ctx.fillText(KAN[rankOf(bdY(j))],G.ox+9*cell+G.m/2,G.oy+j*cell+cell/2);
+  // ひとつ前の手
+  const vi=viewIdx();
+  const last=vi>0?moves[vi-1]:null;
+  if(last&&last.k!=="hole"&&R.info[vi-1]&&!R.info[vi-1].hole&&!R.info[vi-1].bad){
+    ctx.fillStyle="rgba(178,58,46,.16)";
+    ctx.fillRect(G.ox+scX(last.to.x)*cell,G.oy+scY(last.to.y)*cell,cell,cell);
+  }
+  if(sel){ ctx.fillStyle="rgba(35,29,22,.18)"; ctx.fillRect(G.ox+scX(sel.x)*cell,G.oy+scY(sel.y)*cell,cell,cell); }
+  // 駒
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++){
+    const p=st.b[y][x]; if(!p)continue;
+    const rot=p.s===topSide;
+    const cx=G.ox+scX(x)*cell+cell/2, cy=G.oy+scY(y)*cell+cell/2;
+    pentagon(ctx,cx,cy,cell*0.84,cell*0.88,rot);
+    const g2=ctx.createLinearGradient(cx,cy-cell/2,cx,cy+cell/2);
+    g2.addColorStop(0,"#F7E8BE"); g2.addColorStop(1,"#EBD59F");
+    ctx.fillStyle=g2; ctx.fill();
+    ctx.strokeStyle="rgba(120,90,45,.85)"; ctx.lineWidth=1; ctx.stroke();
+    ctx.save(); ctx.translate(cx,cy); if(rot)ctx.rotate(Math.PI);
+    ctx.fillStyle=p.p?"#A5342B":"#241C12";
+    ctx.font=Math.round(cell*0.52)+'px "Hiragino Mincho ProN","Yu Mincho",serif';
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(p.p?NMP[p.t]:NM[p.t],0,cell*0.03);
+    ctx.restore();
+  }
+  // 行けるところ
+  for(const d of curDests){
+    const cx=G.ox+scX(d.x)*cell+cell/2, cy=G.oy+scY(d.y)*cell+cell/2;
+    const occ=st.b[d.y][d.x];
+    ctx.beginPath();
+    if(occ){ ctx.lineWidth=2.4; ctx.strokeStyle="rgba(178,58,46,.85)"; ctx.arc(cx,cy,cell*0.40,0,7); ctx.stroke(); }
+    else{ ctx.fillStyle="rgba(44,74,99,.42)"; ctx.arc(cx,cy,cell*0.13,0,7); ctx.fill(); }
+  }
+}
+/* ==================== 画面 ==================== */
+const $=id=>document.getElementById(id);
+function toast(t){ const e=$("toast"); e.textContent=t; e.classList.add("on"); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove("on"),2100); }
+
+function renderHands(){
+  const st=view(), topSide=mySide^1;
+  for(const[elid,s]of[["handTop",topSide],["handBottom",mySide]]){
+    const el=$(elid); el.innerHTML="";
+    let any=false;
+    for(const t of HAND_ORDER){
+      const n=st.h[s][t]||0; if(!n)continue; any=true;
+      const b=document.createElement("button");
+      b.className="hk"+(s===topSide?" g":"")+(selDrop&&selDrop.s===s&&selDrop.t===t?" sel":"");
+      b.innerHTML=NM[t]+(n>1?'<span class="n">'+n+"</span>":"");
+      if(st.t!==s) b.disabled=true;
+      b.onclick=()=>{ sel=null; selDrop={s,t}; pFilter=null; render(); };
+      el.appendChild(b);
+    }
+    if(!any){ const d=document.createElement("span"); d.className="hand-empty"; d.textContent=(s===0?"先手":"後手")+" 持駒なし"; el.appendChild(d); }
+  }
+}
+function renderSheet(){
+  const el=$("list"); el.innerHTML="";
+  if(!R.info.length){
+    const e=document.createElement("span"); e.className="sheet-empty"; e.textContent="まだ0手です";
+    el.appendChild(e);
+  }
+  R.info.forEach((inf,i)=>{
+    const c=document.createElement("button");
+    c.className="cell"+(selCard===i?" sel":"")+(editIdx===i?" editing":"");
+    const num=document.createElement("span"); num.className="num"; num.textContent=(i+1); c.appendChild(num);
+    const mv=document.createElement("span"); mv.className="mv";
+    if(inf.hole){ mv.textContent="？"; c.classList.add("hole"); }
+    else if(inf.bad){ mv.textContent="✕"; c.classList.add("bad"); }
+    else{
+      mv.innerHTML='<span class="mk">'+(inf.side===0?"▲":"△")+"</span>"+inf.disp;
+      if(inf.side===1) c.classList.add("gote");
+    }
+    c.appendChild(mv);
+    const f=document.createElement("span"); f.className="frm"; f.textContent=inf.frm||""; c.appendChild(f);
+    c.onclick=()=>{ selCard = selCard===i? -1 : i; render(); };
+    el.appendChild(c);
+  });
+  const sh=$("sheet");
+  if(editIdx<0) requestAnimationFrame(()=>{sh.scrollLeft=sh.scrollWidth;});
+  else requestAnimationFrame(()=>{const c=el.children[editIdx]; if(c)c.scrollIntoView({block:"nearest",inline:"center"});});
+  $("cardbar").classList.toggle("on",selCard>=0&&editIdx<0);
+}
+let sgCache=[];
+function renderSuggest(){
+  const el=$("suggest"); el.innerHTML="";
+  const st=view(), idx=viewIdx();
+  // 定跡がまだ効くか
+  const keys=[]; let bookable=true;
+  for(let i=0;i<idx;i++){
+    const m=moves[i];
+    if(m.k==="hole"){bookable=false;break;}
+    const k=mkey(m); if(!k){bookable=false;break;}
+    keys.push(k);
+  }
+  const bookSet=(bookable&&idx<24)? new Set(bookNext(keys)) : null;
+  sgCache=suggest(st,{
+    prevTo:lastTo(), bookSet, ply:idx, pieceFilter:pFilter,
+    rest: editIdx>=0? moves.slice(editIdx+1) : null,
+    limit: pFilter? 21 : 12
+  });
+  const lab=document.createElement("span"); lab.className="sg-label";
+  if(!sgCache.length){
+    lab.textContent = pFilter? "その駒はうごかせません" : "うごかせる手がありません";
+    el.appendChild(lab); return;
+  }
+  const side=st.t===0?"▲先手":"△後手";
+  lab.textContent = editIdx>=0
+    ? (idx+1)+"手目（"+side+"）、この手だったかな？"
+    : (idx+1)+"手目（"+side+"）、この手だったかな？";
+  el.appendChild(lab);
+
+  const row=document.createElement("div"); row.className="sg-row";
+  const per=3, pages=Math.ceil(sgCache.length/per);
+  const page=sgPage%pages;
+  for(let i=page*per;i<Math.min(sgCache.length,page*per+per);i++) row.appendChild(sgButton(st,sgCache[i]));
+  if(pages>1){
+    const more=document.createElement("button"); more.className="sg-more";
+    more.innerHTML="ほかの<br>手";
+    more.onclick=()=>{ sgPage++; renderSuggest(); };
+    row.appendChild(more);
+  }
+  el.appendChild(row);
+}
+function sgButton(st,m){
+  const inf=moveInfo(st,m,lastTo());
+  const b=document.createElement("button"); b.className="sg";
+  const t=document.createElement("span"); t.textContent=(inf.side===0?"▲":"△")+inf.disp;
+  b.appendChild(t);
+  const s=document.createElement("small"); s.textContent=inf.frm?"("+inf.frm+")":"もちごま";
+  b.appendChild(s);
+  b.onclick=()=>commit(m);
+  return b;
+}
+function renderFilter(){
+  const el=$("filter"); el.innerHTML="";
+  const st=view();
+  const have=new Set();
+  for(const m of allMoves(st)) have.add(m.drop||st.b[m.from.y][m.from.x].t);
+  for(const t of TYPE_ORDER){
+    const b=document.createElement("button");
+    b.textContent=NM[t];
+    b.className=(pFilter===t?"on":"");
+    if(!have.has(t)) b.disabled=true;
+    b.onclick=()=>{ pFilter = pFilter===t? null : t; sgPage=0; sel=null; selDrop=null; render(); };
+    el.appendChild(b);
+  }
+}
+function recomputeDests(){
+  const st=view();
+  if(selDrop){
+    curDests=[];
+    for(let y=0;y<9;y++)for(let x=0;x<9;x++) if(dropOk(st,selDrop.t,x,y)) curDests.push({x,y});
+    return;
+  }
+  if(sel){ curDests=destsFrom(st,sel.x,sel.y); return; }
+  if(pFilter){
+    const seen=new Set(); curDests=[];
+    for(const m of allMoves(st)){
+      const t=m.drop||st.b[m.from.y][m.from.x].t;
+      if(t!==pFilter)continue;
+      const k=m.to.x+","+m.to.y; if(seen.has(k))continue;
+      seen.add(k); curDests.push(m.to);
+    }
+    return;
+  }
+  curDests=[];
+}
+function render(){
+  R=replay();
+  if(editIdx>=moves.length) editIdx=-1;
+  recomputeDests();
+  renderHands(); renderSheet(); renderSuggest(); renderFilter();
+  layout(); draw();
+  $("tesuu").textContent=moves.length+"手";
+  $("banner").classList.toggle("on",editIdx>=0);
+  if(editIdx>=0) $("bantext").textContent=(editIdx+1)+"手目を入れています";
+  $("bUndo").disabled=moves.length===0||editIdx>=0;
+  $("bHole").disabled=editIdx>=0;
+  $("cHole").disabled=selCard>=0&&moves[selCard]&&moves[selCard].k==="hole";
+  $("mySen").classList.toggle("on",mySide===0);
+  $("myGo").classList.toggle("on",mySide===1);
+  save();
+}
+/* ==================== 入力 ==================== */
+function commit(m){
+  const st=view();
+  if(!isLegal(st,m)){ toast("その手はここではさせません"); return; }
+  if(editIdx>=0){ moves[editIdx]={k:"m",...m}; editIdx=-1; selCard=-1; }
+  else moves.push({k:"m",...m});
+  sel=null; selDrop=null; pFilter=null; sgPage=0; beep();
+  render();
+}
+cv.addEventListener("click",e=>{
+  const r=cv.getBoundingClientRect();
+  const sq=sqAt(e.clientX-r.left,e.clientY-r.top); if(!sq)return;
+  const st=view();
+  if(selDrop){
+    if(dropOk(st,selDrop.t,sq.x,sq.y)) commit({drop:selDrop.t,to:sq,promote:false});
+    else { selDrop=null; render(); }
+    return;
+  }
+  if(sel){
+    const d=curDests.find(d=>d.x===sq.x&&d.y===sq.y);
+    if(d){
+      const p=st.b[sel.y][sel.x];
+      const must=mustPromo(p.t,p.s,d.y);
+      const can=!p.p&&canPromoType(p.t)&&(inZone(p.s,sel.y)||inZone(p.s,d.y));
+      if(must) return commit({from:sel,to:d,promote:true});
+      if(can){
+        pending={from:sel,to:d};
+        $("promoText").textContent=NM[p.t]+"、成った？";
+        $("promo").classList.add("on"); return;
+      }
+      return commit({from:sel,to:d,promote:false});
+    }
+    if(sq.x===sel.x&&sq.y===sel.y){ sel=null; render(); return; }
+  }
+  const p=st.b[sq.y][sq.x];
+  sel=(p&&p.s===st.t)? sq : null;
+  if(sel) pFilter=null;
+  render();
+});
+$("pYes").onclick=()=>{ $("promo").classList.remove("on"); commit({...pending,promote:true}); };
+$("pNo").onclick =()=>{ $("promo").classList.remove("on"); commit({...pending,promote:false}); };
+
+$("bUndo").onclick=()=>{ if(!moves.length)return; moves.pop(); resetSel(); render(); };
+$("bHole").onclick=()=>{ moves.push({k:"hole"}); resetSel(); toast("あとで埋められます。棋譜の「？」をタップ"); render(); };
+$("banstop").onclick=()=>{ editIdx=-1; resetSel(); render(); };
+$("cFix").onclick=()=>{ editIdx=selCard; selCard=-1; resetSel(); render(); };
+$("cIns").onclick=()=>{ moves.splice(selCard,0,{k:"hole"}); editIdx=selCard; selCard=-1; resetSel(); render(); };
+$("cHole").onclick=()=>{ moves[selCard]={k:"hole"}; editIdx=selCard; selCard=-1; resetSel(); render(); };
+$("cDel").onclick=()=>{
+  const i=selCard;
+  if(i<moves.length-1){
+    askModal("この手をけすと、あとの手がぜんぶ1つずつズレます。",[
+      {t:"「？」にする（おすすめ）",cls:"p",fn:()=>{ moves[i]={k:"hole"}; editIdx=i; selCard=-1; resetSel(); render(); }},
+      {t:"それでもけす",fn:()=>{ moves.splice(i,1); selCard=-1; resetSel(); render(); }},
+      {t:"やめる",cls:"ghost",fn:null}
+    ]);
+  }else{ moves.splice(i,1); selCard=-1; resetSel(); render(); }
+};
+$("mySen").onclick=()=>{mySide=0;render();};
+$("myGo").onclick =()=>{mySide=1;render();};
+function resetSel(){ sel=null; selDrop=null; pFilter=null; sgPage=0; }
+
+/* ==================== モーダル ==================== */
+function askModal(text,btns){
+  $("askText").textContent=text;
+  const box=$("askBtns"); box.innerHTML="";
+  for(const b of btns){
+    const el=document.createElement("button");
+    el.textContent=b.t; if(b.cls) el.className=b.cls;
+    el.onclick=()=>{ $("ask").classList.remove("on"); if(b.fn) b.fn(); };
+    box.appendChild(el);
+  }
+  $("ask").classList.add("on");
+}
+$("bNew").onclick=()=>{
+  if(!moves.length) return toast("まだ何も書いていません");
+  askModal("いまの棋譜をけして、あたらしく書きはじめます。",[
+    {t:"かきだしてから",cls:"p",fn:()=>askResult(()=>doExport(resetAll))},
+    {t:"けしてOK",fn:resetAll},
+    {t:"やめる",cls:"ghost",fn:null}
+  ]);
+};
+function resetAll(){ moves=[]; result=null; editIdx=-1; selCard=-1; resetSel(); render(); }
+
+/* ==================== 書き出し ==================== */
+function askResult(next){
+  askModal("けっかは？",[
+    {t:"かった",cls:"p",fn:()=>{result="win";next();}},
+    {t:"まけた",fn:()=>{result="lose";next();}},
+    {t:"ひきわけ",fn:()=>{result="draw";next();}},
+    {t:"きめない",cls:"ghost",fn:()=>{result=null;next();}}
+  ]);
+}
+function padMove(s){
+  let w=0; for(const c of s) w+= c.charCodeAt(0)<128?1:2;
+  return s+" ".repeat(Math.max(1,14-w));
+}
+function kifText(){
+  const d=new Date(), p2=n=>String(n).padStart(2,"0");
+  let s="#KIF version=2.0 encoding=UTF-8\n";
+  s+="開始日時："+d.getFullYear()+"/"+p2(d.getMonth()+1)+"/"+p2(d.getDate())+"\n";
+  s+="先手："+(mySide===0?"わたし":"あいて")+"\n";
+  s+="後手："+(mySide===1?"わたし":"あいて")+"\n";
+  s+="手数----指手---------消費時間--\n";
+  R.info.forEach((inf,i)=>{ s+=String(i+1).padStart(4," ")+" "+padMove(inf.kif)+"( 0:00/00:00:00)\n"; });
+  const n=moves.length;
+  if(result==="draw"){
+    s+=String(n+1).padStart(4," ")+" "+padMove("持将棋")+"( 0:00/00:00:00)\n";
+    s+="まで"+n+"手で持将棋\n";
+  }else if(result){
+    const winner = result==="win"? mySide : (mySide^1);
+    const loser = winner^1;
+    if(n%2===loser) s+=String(n+1).padStart(4," ")+" "+padMove("投了")+"( 0:00/00:00:00)\n";
+    s+="まで"+n+"手で"+(winner===0?"先手":"後手")+"の勝ち\n";
+  }
+  return s;
+}
+function fname(){
+  const d=new Date(), p2=n=>String(n).padStart(2,"0");
+  return "kifu_"+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+"_"+p2(d.getHours())+p2(d.getMinutes())+".kif";
+}
+async function doExport(after){
+  const text=kifText(), name=fname();
+  // iPhone/iPad は「共有」からファイルアプリやLINEに保存できる
+  try{
+    const file=new File([text],name,{type:"text/plain"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:"棋譜"});
+      toast("かきだしました");
+      if(after)after();
+      return;
+    }
+  }catch(e){
+    if(e&&e.name==="AbortError") return;      // ユーザーがキャンセルしただけ
+  }
+  const blob=new Blob([text],{type:"text/plain;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+  let copied=false;
+  try{ if(navigator.clipboard){ await navigator.clipboard.writeText(text); copied=true; } }catch(e){}
+  toast(copied? "KIFでかきだしました（コピーもしました）" : "KIFでかきだしました");
+  if(after)after();
+}
+$("bKif").onclick=()=>{
+  if(!moves.length) return toast("まだ一手も入っていません");
+  const hole=R.info.findIndex(i=>i.hole), bad=R.info.findIndex(i=>i.bad);
+  if(hole>=0) return toast((hole+1)+"手目がまだ「？」です。うめてからかきだせます");
+  if(bad>=0)  return toast((bad+1)+"手目がさせない手になっています。なおしてください");
+  askResult(()=>doExport());
+};
+/* ==================== 保存・音 ==================== */
+const KEY="kifu-note-v2";
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify({moves,mySide,result})); }catch(e){} }
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem(KEY)||"null");
+    if(d&&Array.isArray(d.moves)){ moves=d.moves; mySide=d.mySide||0; result=d.result||null; }
+  }catch(e){}
+}
+let AC=null;
+function beep(){
+  try{
+    AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==="suspended") AC.resume();
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type="triangle"; o.frequency.setValueAtTime(320,AC.currentTime);
+    o.frequency.exponentialRampToValueAtTime(150,AC.currentTime+.07);
+    g.gain.setValueAtTime(.13,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.11);
+    o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime+.12);
+  }catch(e){}
+}
+let rz;
+window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(()=>{layout();draw();},80); });
+load(); render();
+</script>
+</body>
+</html>
