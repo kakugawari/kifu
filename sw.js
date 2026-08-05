@@ -2,7 +2,8 @@
    対局場で電波が悪くても開けるように、一式をキャッシュから出す。
    キャッシュを先に返し、裏で新しいものを取りに行って次回に備える。 */
 "use strict";
-const CACHE="kifu-note-v1";
+/* 中身を入れ替えたら、この名前を上げる。古いキャッシュは activate で捨てる。 */
+const CACHE="kifu-note-v2";
 const ASSETS=[
   "./",
   "./index.html",
