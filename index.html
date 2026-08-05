@@ -24,7 +24,8 @@
 :root{
   --sumi:#231D16; --kami:#EFE7D6; --kami2:#E4D9C2;
   --ban:#E0BC7E; --ban-line:#5E4526; --koma:#F2DFB0; --koma-e:#C9A96E;
-  --shu:#B23A2E; --ai:#2C4A63; --usu:#8A7A62;
+  --shu:#B23A2E; --ai:#2C4A63; --usu:#6F6047;
+  --midori:#0ABAB5;   /* ティファニーグリーン。行き先の印だけに使う */
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%}
@@ -53,6 +54,7 @@ h1{font-size:16px;margin:0;letter-spacing:.2em;font-weight:600}
 /* 持駒は盤の横の駒台に描く。相手の台は左上、自分の台は右下（本物と同じ並び） */
 #stage{flex:1;min-height:0;display:flex;padding:0 5px}
 #boardwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#boardcol{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:100%}
 canvas{display:block;touch-action:manipulation}
 
 /* ---- 編集中バナー ---- */
@@ -64,20 +66,31 @@ canvas{display:block;touch-action:manipulation}
 #banner.on{display:flex}
 #banner button{margin-left:auto;font-family:inherit;font-size:11px;padding:3px 9px;border:1px solid var(--shu);background:transparent;color:var(--shu);border-radius:2px}
 
+/* ---- 対局者の名札。盤の上が相手、下が自分。指すほうを塗る ---- */
+.turnbar{
+  flex:0 0 auto;align-self:stretch;display:flex;align-items:center;gap:8px;
+  padding:clamp(8px,1.4vh,13px) 13px;border-radius:3px;
+  border:1px solid var(--kami2);background:transparent;
+  color:var(--usu);letter-spacing:.1em;
+}
+.turnbar .mk{font-size:15px;line-height:1}
+.turnbar .who{font-size:14px}
+.turnbar .sub{font-size:11px;opacity:.75;letter-spacing:.08em}
+.turnbar .now{margin-left:auto;font-size:11.5px;font-family:system-ui,sans-serif;letter-spacing:.06em}
+.turnbar.on{background:var(--sumi);border-color:var(--sumi);color:var(--kami)}
+.turnbar.on.gote{background:var(--ai);border-color:var(--ai)}
+.turnbar.on .who{font-weight:700}
+.turnbar.on .now{color:#8FE9E5}
+
 /* ---- この手かな？（3択） ---- */
 #suggest{flex:0 0 auto;padding:5px 10px 0}
 .sg-label{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
-/* どちらの番かの札。先手は墨、後手は藍 */
-.turn{
-  font-size:13.5px;letter-spacing:.1em;padding:4px 12px 5px;border-radius:2px;
-  background:var(--sumi);color:var(--kami);white-space:nowrap;
-}
-.turn.gote{background:var(--ai)}
 .sg-sub{font-size:11.5px;color:var(--usu);letter-spacing:.1em}
 .sg-row{display:flex;gap:6px;align-items:stretch}
 .sg{
-  flex:1;font-family:inherit;font-size:clamp(16px,2vh,19px);padding:clamp(9px,2.2vh,20px) 3px;border-radius:3px;min-width:0;
-  border:1px solid var(--ai);background:rgba(44,74,99,.07);color:var(--ai);letter-spacing:.02em;
+  flex:1;font-family:inherit;font-size:clamp(16px,2vh,19px);padding:clamp(9px,3vh,28px) 3px;border-radius:3px;min-width:0;
+  border:1.5px solid var(--ai);background:#FBF6EA;color:var(--ai);letter-spacing:.02em;
+  box-shadow:0 1px 0 rgba(35,29,22,.12);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
 }
 /* 「▲２二角成」まで一行に収める */
@@ -92,22 +105,25 @@ canvas{display:block;touch-action:manipulation}
 /* ---- 操作バー ---- */
 #bar{flex:0 0 auto;display:flex;gap:6px;padding:7px 10px 4px}
 #bar button{
-  flex:1;font-family:inherit;font-size:clamp(13px,1.9vh,17px);letter-spacing:.06em;padding:clamp(9px,2.1vh,20px) 0;
-  border:1px solid var(--koma-e);background:var(--koma);color:var(--sumi);border-radius:2px;
+  flex:1;font-family:inherit;font-size:clamp(13px,1.9vh,17px);letter-spacing:.06em;padding:clamp(9px,2.4vh,24px) 0;
+  border:1px solid var(--koma-e);background:rgba(242,223,176,.4);color:var(--sumi);border-radius:2px;
 }
 #bar button:disabled{opacity:.4}
 #bar button.q{background:transparent;border-style:dashed;color:var(--shu);border-color:var(--shu)}
 
 /* ---- 棋譜用紙 ---- */
 #sheet{
-  flex:0 0 auto;height:clamp(74px,16vh,148px);margin:0;padding:5px 10px 2px;
+  flex:0 0 auto;height:clamp(74px,15vh,150px);margin:0;padding:5px 10px 4px;
   overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;                 /* 札の下に黒い線が出ないように */
 }
+#sheet::-webkit-scrollbar{display:none}
 #list{display:flex;gap:0;height:100%;align-items:stretch}
 .cell{
-  min-width:clamp(58px,9vw,76px);border-right:1px solid var(--kami2);
-  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
-  padding:3px 4px 0;background:transparent;font-family:inherit;color:var(--sumi);
+  min-width:clamp(58px,9vw,76px);
+  border:0;border-right:1px solid var(--kami2);   /* 既定のボーダーが上下に出るので一度消す */
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:3px 4px;background:transparent;font-family:inherit;color:var(--sumi);
 }
 .cell:first-child{border-left:1px solid var(--kami2)}
 .cell .num{font-size:9.5px;color:var(--usu);font-family:system-ui,sans-serif}
@@ -181,7 +197,13 @@ canvas{display:block;touch-action:manipulation}
 </div>
 
 <div id="stage">
-  <div id="boardwrap"><canvas id="bd"></canvas></div>
+  <div id="boardwrap">
+    <div id="boardcol">
+      <div class="turnbar" id="turnTop"></div>
+      <canvas id="bd"></canvas>
+      <div class="turnbar" id="turnBot"></div>
+    </div>
+  </div>
 </div>
 
 <div id="banner"><span id="bantext"></span><button id="banstop">中止</button></div>
@@ -511,17 +533,19 @@ const KD=1.35;  // 駒台の幅（マス何個ぶんか）
 const LB=0.5;   // 筋・段の数字を書く余白
 function layout(){
   const wrap=document.getElementById("boardwrap");
+  const plates=document.getElementById("turnTop").offsetHeight
+              +document.getElementById("turnBot").offsetHeight+12;   // 名札とすき間のぶん
   const availW=Math.max(180,wrap.clientWidth);
-  const availH=Math.max(180,wrap.clientHeight);
+  const availH=Math.max(180,wrap.clientHeight-plates);
   // 横は［駒台］［盤9］［段の数字］［駒台］、縦は［筋の数字］［盤9］
-  const cell=Math.max(18,Math.floor(Math.min(availW/(9+2*KD+LB), availH/(9+LB+0.34))));
+  const cell=Math.max(18,Math.floor(Math.min(availW/(9+2*KD+LB), availH/(9+LB))));
   const m=Math.round(cell*LB), kw=Math.round(cell*KD);
-  const mb=Math.round(cell*0.34);                 // 手番の帯を出す下の余白
-  const W=kw+cell*9+m+kw, H=m+cell*9+mb;
+  const W=kw+cell*9+m+kw, H=m+cell*9;
   cv.style.width=W+"px"; cv.style.height=H+"px";
+  document.getElementById("boardcol").style.width=W+"px";   // 名札を盤と同じ幅にそろえる
   const dpr=Math.min(window.devicePixelRatio||1,3);
   cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
-  G={cell,ox:kw,oy:m,W,H,m,mb,kw};
+  G={cell,ox:kw,oy:m,W,H,m,kw};
 }
 function sqAt(cx,cy){
   const i=Math.floor((cx-G.ox)/G.cell), j=Math.floor((cy-G.oy)/G.cell);
@@ -550,7 +574,7 @@ function roundRect(g,x,y,w,h,r){
 /* 駒ひとつ。盤の上でも駒台の上でも同じものを使う。
    五角形は頭がとがっているぶん重心が下寄りなので、字も少し下げて中央に見せる。 */
 const KOMA_FONT='"Koma","Hiragino Mincho ProN","Yu Mincho",serif';
-const TIF="#0ABAB5";   // ティファニーグリーン
+const TIF=getComputedStyle(document.documentElement).getPropertyValue("--midori").trim()||"#0ABAB5";
 function drawKoma(g,cx,cy,w,h,rot,ch,pro,inv){
   pentagon(g,cx,cy,w,h,rot);
   const gr=g.createLinearGradient(cx,cy-h/2,cx,cy+h/2);
@@ -584,13 +608,8 @@ function drawKomadai(st,x0,y0,w,h,side,rot){
   gr.addColorStop(0,"#DCBB83"); gr.addColorStop(1,"#C69E60");
   ctx.fillStyle=gr; ctx.fill();
   ctx.restore();
-  if(st.t===side){                       // この駒台の持ち主の番
-    ctx.strokeStyle=TIF; ctx.lineWidth=Math.max(2,cell*0.075);
-    roundRect(ctx,x0,y0,w,h,r); ctx.stroke();
-  }else{
-    ctx.strokeStyle="rgba(94,69,38,.6)"; ctx.lineWidth=1.2;
-    roundRect(ctx,x0,y0,w,h,r); ctx.stroke();
-  }
+  ctx.strokeStyle="rgba(94,69,38,.6)"; ctx.lineWidth=1.2;
+  roundRect(ctx,x0,y0,w,h,r); ctx.stroke();
   // 縁のあたり（台の面に見えるように）
   ctx.strokeStyle="rgba(255,255,255,.3)"; ctx.lineWidth=1;
   roundRect(ctx,x0+2.5,y0+2.5,w-5,h-5,r-2); ctx.stroke();
@@ -620,17 +639,6 @@ function draw(){
   const st=view(), cell=G.cell;
   const topSide=mySide^1;
   ctx.clearRect(0,0,G.W,G.H);
-  // どちらの番かの帯。指すほうの側、盤のすぐ外に引く
-  {
-    const bar=Math.max(3,Math.round(cell*0.10)), r=bar/2;
-    const y = st.t===mySide ? G.oy+cell*9+Math.round(cell*0.11)   // 自分＝下
-                            : G.oy-Math.round(cell*0.11)-bar;     // 相手＝上
-    ctx.save();
-    ctx.shadowColor="rgba(10,90,88,.45)"; ctx.shadowBlur=cell*0.12;
-    roundRect(ctx,G.ox,y,cell*9,bar,r);
-    ctx.fillStyle=TIF; ctx.fill();
-    ctx.restore();
-  }
   // 駒台（相手＝左上、自分＝右下。本物の将棋と同じ並び）
   kdHit=[];
   const hTop=komadaiH(st,topSide), hBot=komadaiH(st,mySide);
@@ -722,6 +730,19 @@ function renderSheet(){
   $("cardbar").classList.toggle("on",selCard>=0&&editIdx<0);
 }
 let sgCache=[];
+/* 対局者の名札。位置（上＝相手／下＝自分）と塗りで手番を示す */
+function renderTurn(){
+  const st=view(), idx=viewIdx();
+  for(const [id,side] of [["turnTop",mySide^1],["turnBot",mySide]]){
+    const el=$(id), on=st.t===side;
+    el.className="turnbar"+(on?" on":"")+(side===1?" gote":"");
+    el.innerHTML=
+      '<span class="mk">'+(side===0?"▲":"△")+"</span>"+
+      '<span class="who">'+(side===0?"先手":"後手")+(on?"の番":"")+"</span>"+
+      '<span class="sub">'+(side===mySide?"自分":"相手")+"</span>"+
+      (on? '<span class="now">'+(idx+1)+"手目</span>" : "");
+  }
+}
 function renderSuggest(){
   const el=$("suggest"); el.innerHTML="";
   const st=view(), idx=viewIdx();
@@ -740,12 +761,8 @@ function renderSuggest(){
     limit:12
   });
   const lab=document.createElement("div"); lab.className="sg-label";
-  const chip=document.createElement("span");
-  chip.className="turn"+(st.t===1?" gote":"");
-  chip.textContent=(st.t===0?"▲ 先手":"△ 後手")+"の番";
-  lab.appendChild(chip);
   const sub=document.createElement("span"); sub.className="sg-sub";
-  sub.textContent=sgCache.length? (idx+1)+"手目　この手だった？" : "動かせる手がありません";
+  sub.textContent=sgCache.length? "この手だった？" : "動かせる手がありません";
   lab.appendChild(sub);
   el.appendChild(lab);
   if(!sgCache.length) return;
@@ -786,7 +803,7 @@ function render(){
   R=replay();
   if(editIdx>=moves.length) editIdx=-1;
   recomputeDests();
-  renderSheet(); renderSuggest();
+  renderSheet(); renderTurn(); renderSuggest();
   layout(); draw();
   $("tesuu").textContent=moves.length+"手";
   $("banner").classList.toggle("on",editIdx>=0);
