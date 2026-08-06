@@ -136,6 +136,12 @@ canvas{display:block;touch-action:manipulation}
   font-size:11px;letter-spacing:.08em;padding:2px 8px 3px;border-radius:2px;
   background:rgba(178,58,46,.13);color:var(--shu);white-space:nowrap;
 }
+/* 詰みのときだけ出す。行の右端に寄せて、3択の邪魔をしない */
+.sg-fin{
+  margin-left:auto;font-family:inherit;font-size:11.5px;letter-spacing:.06em;
+  padding:3px 11px 4px;border-radius:2px;
+  border:1px solid var(--shu);background:transparent;color:var(--shu);
+}
 .sg-row{display:flex;gap:6px;align-items:stretch}
 .sg{
   flex:1;font-family:inherit;font-size:clamp(16px,2vh,19px);padding:clamp(9px,3vh,28px) 3px;border-radius:4px;min-width:0;
@@ -606,7 +612,11 @@ function suggest(st,opt){
     const s2=cl(st); applyMove(s2,e.m);
     const landed=s2.b[e.m.to.y][e.m.to.x];
     const oc=coverage(s2,opp), mc=coverage(s2,me);
-    if(oc[e.m.to.y][e.m.to.x]>mc[e.m.to.y][e.m.to.x]) e.s-=val(landed)*3.2; // 取られる所に置いた
+    /* 取られる所に置いた手は下げる。玉はここでは見ない。
+       玉が取られる所へ行く手はすでに risky で下げてあるし、
+       味方が利いていても取りかえす相手がいない（そこで終わり）ので、
+       ここで重ねて下げると玉の手どうしの並び順が壊れる。 */
+    if(e.t!=="OU" && oc[e.m.to.y][e.m.to.x]>mc[e.m.to.y][e.m.to.x]) e.s-=val(landed)*3.2;
     if(givesCheck(s2,me)) e.s+=28;
   }
   // あとの手との辻褄（？の穴うめのとき）
@@ -936,18 +946,26 @@ function renderSuggest(){
   for(let i=0;i<safeN;i+=per)               pages.push(sgCache.slice(i,Math.min(i+per,safeN)));
   for(let i=safeN;i<sgCache.length;i+=per)  pages.push(sgCache.slice(i,i+per));
 
+  const checked=inCheck(st,st.t);
+  const mate=sgCache.length>0 && safeN===0;   // 逃げ道なし。王手されていれば詰み
+  const page=pages.length? sgPage%pages.length : 0;
+  const onRisky=pages.length>0 && page>=Math.ceil(safeN/per);
+
   const lab=document.createElement("div"); lab.className="sg-label";
   const sub=document.createElement("span"); sub.className="sg-sub";
   sub.textContent=sgCache.length? (idx+1)+"手目　この手だった？" : "動かせる手がありません";
   lab.appendChild(sub);
-  if(inCheck(st,st.t)){
-    const w=document.createElement("span"); w.className="sg-warn"; w.textContent="王手されています";
-    lab.appendChild(w);
-  }
-  const page=pages.length? sgPage%pages.length : 0;
-  if(pages.length && page>=Math.ceil(safeN/per) && safeN>0){
-    const w=document.createElement("span"); w.className="sg-warn"; w.textContent="玉を取られる手";
-    lab.appendChild(w);
+  const warn=t=>{ const w=document.createElement("span"); w.className="sg-warn"; w.textContent=t; lab.appendChild(w); };
+  /* 逃げ道がまったく無いときは、その3つも玉を取られる手になる。
+     黙って出すと「気づいていない」ように見えるので、はっきり書く。 */
+  if(mate&&checked)      warn("詰みです。どの手でも玉を取られます");
+  else if(mate)          warn("どの手でも玉を取られます");
+  else if(checked)       warn("王手されています");
+  if(onRisky&&!mate)     warn("玉を取られる手");
+  if(mate&&checked){
+    const b=document.createElement("button"); b.className="sg-fin"; b.textContent="投了して保存";
+    b.onclick=()=>$("bKif").click();
+    lab.appendChild(b);
   }
   el.appendChild(lab);
   if(!sgCache.length) return;

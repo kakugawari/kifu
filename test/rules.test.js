@@ -112,7 +112,37 @@ ok(top[0]==="同馬", "玉を取る手が1番目: "+JSON.stringify(top));
   ok(all.length<cand.length, "王手を解く手が候補に含まれる（"+(cand.length-all.length)+"手）");
 }
 
-// --- 12. 速度 ---
+// --- 12. 詰み（逃げ道がまったく無い局面）---
+// 実際の対局から。▲2六金打で後手玉(2五)が詰んでいる。4四の龍が2四・3四・1四を、
+// 打った金が1五・3五・1六・3六を止めていて、205手すべてで玉が取られる。
+{
+  const st=M.initState();
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++) st.b[y][x]=null;
+  st.h=[{},{}];
+  const put=(f,r,t,side,pr)=>{ st.b[M.yOf(r)][M.xOf(f)]={t,s:side,p:!!pr}; };
+  put(2,1,"KE",1); put(1,1,"KY",1);
+  put(3,3,"KA",1,true); put(1,3,"FU",1);
+  put(8,4,"FU",1); put(4,4,"HI",0,true);
+  put(3,5,"FU",1); put(2,5,"OU",1);
+  put(7,6,"FU",0); put(2,6,"KI",0);
+  [8,6,5,4,3,2,1].forEach(f=>put(f,7,"FU",0));
+  put(9,8,"FU",1); put(7,8,"KI",0); put(4,8,"GI",0);
+  put(7,9,"GI",0); put(5,9,"OU",0); put(4,9,"KI",0); put(2,9,"KE",0); put(1,9,"KY",0);
+  st.h[1]={KA:2,KE:2,KY:2,FU:2}; st.h[0]={HI:1,KI:1,GI:1,FU:5};
+  st.t=1;
+  const all=M.allMoves(st);
+  ok(M.inCheck(st,1)&&all.every(m=>M.leavesKingTaken(st,m)),
+     "詰み局面：全"+all.length+"手で玉が取られる");
+  const prevTo={x:M.xOf(2),y:M.yOf(6)};
+  const cand=M.suggest(st,{prevTo,ply:59,limit:12});
+  let safeN=0; while(safeN<cand.length && !M.leavesKingTaken(st,cand[safeN])) safeN++;
+  ok(safeN===0, "安全な手はゼロ（詰みの合図） safeN="+safeN);
+  // 逃げられないなりに、人が指しそうな手が上に来ること（王手した駒を取る手）
+  ok(M.moveInfo(st,cand[0],prevTo).disp==="同玉",
+     "詰みでも1番目は王手した駒を取る手: "+M.moveInfo(st,cand[0],prevTo).disp);
+}
+
+// --- 13. 速度 ---
 st=M.initState();
 for(const k of M.BOOK[1]) if(M.isLegal(st,key2m(k))) M.applyMove(st,key2m(k));
 let t0=Date.now(); for(let i=0;i<20;i++) M.suggest(st,{ply:14,limit:12}); let ms=(Date.now()-t0)/20;
