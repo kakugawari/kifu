@@ -91,10 +91,15 @@ canvas{display:block;touch-action:manipulation}
 /* 横に入りきらなければ帯ごと折り返して、持ち駒を隠さない */
 .turnbar .hand{flex:1 1 auto;min-width:min(100%,168px);display:flex;align-items:center;
   gap:3px;row-gap:4px;flex-wrap:wrap;justify-content:flex-end;padding:0 2px}
+/* .hk 自体は切り抜かない。切り抜くと枚数バッジが欠けるため。
+   五角形は中の .p が受け持ち、向きもこれだけを回す。 */
 .hk{
-  flex:0 0 auto;position:relative;padding:0;border:0;background:#8A6A34;
+  flex:0 0 auto;position:relative;padding:0;border:0;background:transparent;
   width:var(--hk,26px);height:calc(var(--hk,26px) * 1.06);
   font-size:calc(var(--hk,26px) * 0.58);
+}
+.hk .p{
+  position:absolute;inset:0;background:#8A6A34;
   clip-path:polygon(50% 0%,86% 19%,100% 100%,0 100%,14% 19%);
 }
 .hk .c{
@@ -109,8 +114,11 @@ canvas{display:block;touch-action:manipulation}
   font-family:system-ui,sans-serif;font-size:clamp(10px,calc(var(--hk,26px) * .33),14px);
   font-weight:700;color:var(--kami);background:var(--shu);border-radius:7px;padding:0 4px;line-height:1.35;
 }
+/* 上の帯に載る側の駒は下向き。枚数バッジは回さないので読める */
+.hk.g .p{transform:rotate(180deg)}
 .hk[disabled]{opacity:.42}
 .hk.sel .c{background:linear-gradient(180deg,#40352A,#231D16);color:#F2DFB0}
+.hk.sel .p{background:#1a1510}
 .turnbar.on{
   background:var(--sente);border-color:var(--sente);color:var(--kami);
   box-shadow:0 1px 3px rgba(35,29,22,.20);
@@ -717,8 +725,12 @@ function draw(){
   const vi=viewIdx();
   const last=vi>0?moves[vi-1]:null;
   if(last&&last.k!=="hole"&&R.info[vi-1]&&!R.info[vi-1].hole&&!R.info[vi-1].bad){
-    ctx.fillStyle="rgba(178,58,46,.16)";
-    ctx.fillRect(G.ox+scX(last.to.x)*cell,G.oy+scY(last.to.y)*cell,cell,cell);
+    const lx=G.ox+scX(last.to.x)*cell, ly=G.oy+scY(last.to.y)*cell;
+    ctx.fillStyle="rgba(178,58,46,.34)";
+    ctx.fillRect(lx,ly,cell,cell);
+    ctx.strokeStyle="rgba(178,58,46,.9)";
+    ctx.lineWidth=Math.max(2,cell*0.055);
+    ctx.strokeRect(lx+ctx.lineWidth/2,ly+ctx.lineWidth/2,cell-ctx.lineWidth,cell-ctx.lineWidth);
   }
   if(sel){ ctx.fillStyle="rgba(35,29,22,.18)"; ctx.fillRect(G.ox+scX(sel.x)*cell,G.oy+scY(sel.y)*cell,cell,cell); }
   // 駒
@@ -796,9 +808,11 @@ function renderTurn(){
     for(const t of HAND_ORDER){
       const n=st.h[side][t]||0; if(!n)continue;
       const b=document.createElement("button");
-      b.className="hk"+(selDrop&&selDrop.s===side&&selDrop.t===t?" sel":"");
+      b.className="hk"+(side===(mySide^1)?" g":"")+(selDrop&&selDrop.s===side&&selDrop.t===t?" sel":"");
       b.disabled = st.t!==side;                       // 手番でないほうは押せない
-      const c=document.createElement("span"); c.className="c"; c.textContent=NM[t]; b.appendChild(c);
+      const pc=document.createElement("span"); pc.className="p";
+      const c=document.createElement("span"); c.className="c"; c.textContent=NM[t];
+      pc.appendChild(c); b.appendChild(pc);
       if(n>1){ const q=document.createElement("span"); q.className="n"; q.textContent=n; b.appendChild(q); }
       b.onclick=()=>{
         sel=null;
