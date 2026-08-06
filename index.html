@@ -25,7 +25,8 @@
   --sumi:#231D16; --kami:#EFE7D6; --kami2:#E4D9C2;
   --ban:#E0BC7E; --ban-line:#5E4526; --koma:#F2DFB0; --koma-e:#C9A96E;
   --shu:#B23A2E; --usu:#6F6047;
-  --sente:#231D16; --gote:#FFFFFF;   /* 先手は黒、後手は白 */
+  --sente:#231D16; --gote:#FFFFFF;   /* 先手は黒、後手は白。3択のボタンだけに使う */
+  --cha:#4B3621;                     /* 駒台（手番の帯）のこげ茶。先手後手で分けない */
   --haikei:#FAF9F6;                  /* 画面の地 */
   --mizu-o:#32C8F0; --mizu-i:#A8F0FF;/* 行き先の印。外側と内側 */
 }
@@ -117,14 +118,15 @@ canvas{display:block;touch-action:manipulation}
 /* 上の帯に載る側の駒は下向き。枚数バッジは回さないので読める */
 .hk.g .p{transform:rotate(180deg)}
 .hk[disabled]{opacity:.42}
+/* 選んだ駒。面だけ黒くする。縁まで黒くするとこげ茶の帯に溶けて形が消える */
 .hk.sel .c{background:linear-gradient(180deg,#40352A,#231D16);color:#F2DFB0}
-.hk.sel .p{background:#1a1510}
+/* 指すほうの帯を塗る。色は先手後手どちらもこげ茶。
+   白黒は3択のボタンが受け持っているので、駒台まで白黒にすると画面がくどくなる。
+   どちらの側かは ▲△ と「先手／後手」と、上下の位置で分かる。 */
 .turnbar.on{
-  background:var(--sente);border-color:var(--sente);color:var(--kami);
+  background:var(--cha);border-color:var(--cha);color:var(--kami);
   box-shadow:0 1px 3px rgba(35,29,22,.20);
 }
-.turnbar.on.gote{background:var(--gote);border-color:var(--sumi);color:var(--sumi);
-  box-shadow:0 2px 6px rgba(35,29,22,.28)}
 .turnbar.on .who{font-weight:700}
 .turnbar.on .now{opacity:.72}
 
@@ -879,7 +881,7 @@ function renderTurn(){
   for(const [id,side] of [["turnTop",mySide^1],["turnBot",mySide]]){
     const done=R.over>=0&&editIdx<0;                 // 玉が取られて終わっている
     const el=$(id), on=done? R.winner===side : st.t===side;
-    el.className="turnbar"+(on?" on":"")+(side===1?" gote":"");
+    el.className="turnbar"+(on?" on":"");   // 帯の色は先手後手で分けない
     el.innerHTML="";
     const add=(cls,txt)=>{ const e=document.createElement("span"); e.className=cls; e.textContent=txt; el.appendChild(e); };
     add("mk", side===0?"▲":"△");
