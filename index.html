@@ -151,6 +151,21 @@ canvas{display:block;touch-action:manipulation}
   border:1px dashed var(--usu);background:transparent;color:var(--usu);line-height:1.3;
 }
 .sg-none{font-size:12px;color:var(--usu);letter-spacing:.08em;padding:6px 0}
+/* 玉を取って対局が終わったときの知らせ */
+.over{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:clamp(10px,1.8vh,16px) 14px;border-radius:4px;
+  background:var(--sumi);color:var(--kami);box-shadow:0 2px 4px rgba(35,29,22,.22);
+}
+.over-t{font-size:clamp(16px,2.1vh,20px);letter-spacing:.08em;font-weight:700;flex:0 0 auto}
+/* 説明は必ず次の行へ。一行目は「勝ち」と保存ボタンだけにする */
+.over-d{order:3;flex:1 0 100%;font-size:11.5px;color:rgba(239,231,214,.78);
+  letter-spacing:.06em;line-height:1.5;margin-top:-2px}
+.over-b{
+  flex:0 0 auto;margin-left:auto;font-family:inherit;font-size:14px;letter-spacing:.1em;
+  padding:9px 20px;border-radius:3px;border:1px solid var(--kami);
+  background:transparent;color:var(--kami);
+}
 
 /* ---- 操作バー ---- */
 #bar{flex:0 0 auto;display:flex;gap:6px;padding:7px 10px 4px}
@@ -188,6 +203,8 @@ canvas{display:block;touch-action:manipulation}
 .cell.hole{background:rgba(178,58,46,.06)}
 .cell.hole .mv{color:var(--shu)}
 .cell.bad .mv{color:var(--shu);text-decoration:line-through}
+.cell.after{opacity:.4}
+.cell.after .mv{color:var(--usu)}
 .cell.sel{background:var(--sumi)}
 .cell.sel .mv,.cell.sel .num,.cell.sel .frm{color:var(--kami)}
 .cell.editing{outline:2px solid var(--shu);outline-offset:-2px}
@@ -587,12 +604,16 @@ let R={pos:[initState()],info:[]};
 
 function replay(){
   let st=initState(); const pos=[cl(st)], info=[]; let prevTo=null;
+  let over=-1, winner=-1;                      // 玉を取った手と、取ったほう
   for(const m of moves){
+    if(over>=0){ info.push({after:true}); pos.push(cl(st)); continue; }   // 終局のあと
     if(m.k==="hole"){ info.push({hole:true}); st.t^=1; pos.push(cl(st)); prevTo=null; continue; }
     if(!isLegal(st,m)){ info.push({bad:true,side:st.t}); st.t^=1; pos.push(cl(st)); prevTo=null; continue; }
+    const cap = m.drop? null : st.b[m.to.y][m.to.x];
     info.push(moveInfo(st,m,prevTo)); applyMove(st,m); prevTo=m.to; pos.push(cl(st));
+    if(cap&&cap.t==="OU"){ over=info.length-1; winner=cap.s^1; info[over].win=winner; }
   }
-  return {pos,info};
+  return {pos,info,over,winner};
 }
 const viewIdx=()=> editIdx>=0? editIdx : moves.length;
 const view=()=> R.pos[viewIdx()];
@@ -774,7 +795,8 @@ function renderSheet(){
     c.className="cell"+(selCard===i?" sel":"")+(editIdx===i?" editing":"");
     const num=document.createElement("span"); num.className="num"; num.textContent=(i+1); c.appendChild(num);
     const mv=document.createElement("span"); mv.className="mv";
-    if(inf.hole){ mv.textContent="？"; c.classList.add("hole"); }
+    if(inf.after){ mv.textContent="—"; c.classList.add("after"); }
+    else if(inf.hole){ mv.textContent="？"; c.classList.add("hole"); }
     else if(inf.bad){ mv.textContent="✕"; c.classList.add("bad"); }
     else{
       mv.innerHTML='<span class="mk">'+(inf.side===0?"▲":"△")+"</span>"+inf.disp;
@@ -795,13 +817,14 @@ let sgCache=[];
 function renderTurn(){
   const st=view(), idx=viewIdx();
   for(const [id,side] of [["turnTop",mySide^1],["turnBot",mySide]]){
-    const el=$(id), on=st.t===side;
+    const done=R.over>=0&&editIdx<0;                 // 玉が取られて終わっている
+    const el=$(id), on=done? R.winner===side : st.t===side;
     el.className="turnbar"+(on?" on":"")+(side===1?" gote":"");
     el.innerHTML="";
     const add=(cls,txt)=>{ const e=document.createElement("span"); e.className=cls; e.textContent=txt; el.appendChild(e); };
     add("mk", side===0?"▲":"△");
     add("who", side===0?"先手":"後手");
-    if(on) add("noban","の番");        // 狭い画面では隠す（塗りで手番は分かる）
+    if(on) add("noban", done?"の勝ち":"の番");   // 狭い画面では隠す（塗りで分かる）
     add("sub", nameOf(side)||(side===mySide?"自分":"相手"));
     // 持ち駒。この帯が駒台をかねる
     const hand=document.createElement("span"); hand.className="hand";
@@ -841,6 +864,20 @@ function renderSuggest(){
     rest: editIdx>=0? moves.slice(editIdx+1) : null,
     limit:12
   });
+  // 玉が取られていたら、そこで対局は終わり
+  if(R.over>=0&&editIdx<0){
+    const w=R.winner;
+    const box=document.createElement("div"); box.className="over";
+    const t=document.createElement("div"); t.className="over-t";
+    t.textContent=(w===0?"▲先手":"△後手")+"の勝ち";
+    const d=document.createElement("div"); d.className="over-d";
+    d.textContent=(R.over+1)+"手目で玉を取りました。ここで対局は終わりです。";
+    const bt=document.createElement("button"); bt.className="over-b"; bt.textContent="保存する";
+    bt.onclick=()=>$("bKif").click();
+    box.appendChild(t); box.appendChild(d); box.appendChild(bt);
+    el.appendChild(box);
+    return;
+  }
   const lab=document.createElement("div"); lab.className="sg-label";
   const sub=document.createElement("span"); sub.className="sg-sub";
   sub.textContent=sgCache.length? (idx+1)+"手目　この手だった？" : "動かせる手がありません";
@@ -883,6 +920,8 @@ function recomputeDests(){
 function render(){
   R=replay();
   if(editIdx>=moves.length) editIdx=-1;
+  // 玉を取って終わったなら、結果を先に入れておく（保存のときに変えられる）
+  if(R.over>=0&&result===null) result=(R.winner===mySide)?"win":"lose";
   recomputeDests();
   renderSheet(); renderTurn(); renderSuggest();
   layout(); draw();
@@ -898,6 +937,7 @@ function render(){
 }
 /* ==================== 入力 ==================== */
 function commit(m){
+  if(R.over>=0&&editIdx<0){ toast("玉を取ったのでここまでです"); return; }
   const st=view();
   if(!isLegal(st,m)){ toast("その手はここでは指せません"); return; }
   if(editIdx>=0){ moves[editIdx]={k:"m",...m}; editIdx=-1; selCard=-1; }
@@ -940,7 +980,11 @@ $("pYes").onclick=()=>{ $("promo").classList.remove("on"); commit({...pending,pr
 $("pNo").onclick =()=>{ $("promo").classList.remove("on"); commit({...pending,promote:false}); };
 
 $("bUndo").onclick=()=>{ if(!moves.length)return; moves.pop(); resetSel(); render(); };
-$("bHole").onclick=()=>{ moves.push({k:"hole"}); resetSel(); toast("後で埋められます。上の「？」の札を押してください"); render(); };
+$("bHole").onclick=()=>{
+  if(R.over>=0){ return toast("玉を取ったのでここまでです"); }
+  moves.push({k:"hole"}); resetSel();
+  toast("後で埋められます。上の「？」の札を押してください"); render();
+};
 $("banstop").onclick=()=>{ editIdx=-1; resetSel(); render(); };
 $("cFix").onclick=()=>{ editIdx=selCard; selCard=-1; resetSel(); render(); };
 $("cIns").onclick=()=>{ moves.splice(selCard,0,{k:"hole"}); editIdx=selCard; selCard=-1; resetSel(); render(); };
@@ -1094,15 +1138,19 @@ function kifText(){
   s+="先手："+(nameOf(0)||(mySide===0?"わたし":"あいて"))+"\n";
   s+="後手："+(nameOf(1)||(mySide===1?"わたし":"あいて"))+"\n";
   s+="手数----指手---------消費時間--\n";
-  R.info.forEach((inf,i)=>{ s+=String(i+1).padStart(4," ")+" "+padMove(inf.kif)+"( 0:00/00:00:00)\n"; });
-  const n=moves.length;
+  R.info.forEach((inf,i)=>{
+    if(inf.after) return;                      // 終局のあとに残っている手は書かない
+    s+=String(i+1).padStart(4," ")+" "+padMove(inf.kif)+"( 0:00/00:00:00)\n";
+  });
+  const n = R.over>=0? R.over+1 : moves.length;
   if(result==="draw"){
     s+=String(n+1).padStart(4," ")+" "+padMove("持将棋")+"( 0:00/00:00:00)\n";
     s+="まで"+n+"手で持将棋\n";
   }else if(result){
     const winner = result==="win"? mySide : (mySide^1);
     const loser = winner^1;
-    if(n%2===loser) s+=String(n+1).padStart(4," ")+" "+padMove("投了")+"( 0:00/00:00:00)\n";
+    // 玉を取って終わった棋譜に投了は付けない（投了ではないため）
+    if(R.over<0 && n%2===loser) s+=String(n+1).padStart(4," ")+" "+padMove("投了")+"( 0:00/00:00:00)\n";
     s+="まで"+n+"手で"+(winner===0?"先手":"後手")+"の勝ち\n";
   }
   return s;
@@ -1143,7 +1191,8 @@ async function doExport(after){
 }
 $("bKif").onclick=()=>{
   if(!moves.length) return toast("まだ一手も入っていません");
-  const hole=R.info.findIndex(i=>i.hole), bad=R.info.findIndex(i=>i.bad);
+  const chk=R.over>=0? R.info.slice(0,R.over+1) : R.info;
+  const hole=chk.findIndex(i=>i.hole), bad=chk.findIndex(i=>i.bad);
   if(hole>=0) return toast((hole+1)+"手目が「？」のままです。埋めてから保存できます");
   if(bad>=0)  return toast((bad+1)+"手目が指せない手になっています。札を押して訂正してください");
   askResult(()=>doExport());

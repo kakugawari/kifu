@@ -73,7 +73,19 @@ sg=M.suggest(st,{prevTo:key2m("3334").to,ply:2,rest,limit:3});
 top=sg.map(m=>M.moveInfo(st,m,key2m("3334").to).disp);
 ok(top[0]==="２二角成", "穴うめ候補の1番目 = "+JSON.stringify(top));
 
-// --- 10. 速度 ---
+// --- 10. 玉を取る手が候補の先頭に来るか（王手放置のあと） ---
+// ▲7六歩 △3四歩 ▲2二角成 △4二玉 ▲7五歩 △3三玉（玉を取られる場所へ）
+st=M.initState(); prevTo=null;
+for(const k of ["7776","3334","8822+","5142","7675","4233"]){ const m=key2m(k); M.applyMove(st,m); prevTo=m.to; }
+sg=M.suggest(st,{prevTo,ply:6,limit:3});
+top=sg.map(m=>M.moveInfo(st,m,prevTo).disp);
+ok(top[0]==="同馬", "玉を取る手が1番目: "+JSON.stringify(top));
+{
+  const m=sg[0], cap=st.b[m.to.y][m.to.x];
+  ok(cap&&cap.t==="OU", "その手は玉を取っている: "+(cap?M.NM[cap.t]:"なし"));
+}
+
+// --- 11. 速度 ---
 st=M.initState();
 for(const k of M.BOOK[1]) if(M.isLegal(st,key2m(k))) M.applyMove(st,key2m(k));
 let t0=Date.now(); for(let i=0;i<20;i++) M.suggest(st,{ply:14,limit:12}); let ms=(Date.now()-t0)/20;
