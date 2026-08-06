@@ -3,7 +3,7 @@
    キャッシュを先に返し、裏で新しいものを取りに行って次回に備える。 */
 "use strict";
 /* 中身を入れ替えたら、この名前を上げる。古いキャッシュは activate で捨てる。 */
-const CACHE="kifu-note-v15";
+const CACHE="kifu-note-v16";
 const ASSETS=[
   "./",
   "./index.html",
