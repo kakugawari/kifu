@@ -132,6 +132,10 @@ canvas{display:block;touch-action:manipulation}
 #suggest{flex:0 0 auto;padding:5px 10px 0}
 .sg-label{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
 .sg-sub{font-size:11.5px;color:var(--usu);letter-spacing:.1em}
+.sg-warn{
+  font-size:11px;letter-spacing:.08em;padding:2px 8px 3px;border-radius:2px;
+  background:rgba(178,58,46,.13);color:var(--shu);white-space:nowrap;
+}
 .sg-row{display:flex;gap:6px;align-items:stretch}
 .sg{
   flex:1;font-family:inherit;font-size:clamp(16px,2vh,19px);padding:clamp(9px,3vh,28px) 3px;border-radius:4px;min-width:0;
@@ -469,13 +473,37 @@ function kingSq(st,s){
   for(let y=0;y<9;y++)for(let x=0;x<9;x++){const p=st.b[y][x]; if(p&&p.s===s&&p.t==="OU")return{x,y};}
   return null;
 }
-function givesCheck(st,side){ // side が相手に王手をかけているか
-  const k=kingSq(st,side^1); if(!k)return false;
-  for(let y=0;y<9;y++)for(let x=0;x<9;x++){
-    const p=st.b[y][x]; if(!p||p.s!==side)continue;
-    for(const d of attacksFrom(st,x,y)) if(d.x===k.x&&d.y===k.y) return true;
+function attackedBy(st,x,y,by){        // (x,y) が by 側に狙われているか
+  for(let j=0;j<9;j++)for(let i=0;i<9;i++){
+    const p=st.b[j][i]; if(!p||p.s!==by)continue;
+    for(const d of attacksFrom(st,i,j)) if(d.x===x&&d.y===y) return true;
   }
   return false;
+}
+function givesCheck(st,side){          // side が相手に王手をかけているか
+  const k=kingSq(st,side^1);
+  return k? attackedBy(st,k.x,k.y,side) : false;
+}
+function inCheck(st,side){             // side が王手をかけられているか
+  const k=kingSq(st,side);
+  return k? attackedBy(st,k.x,k.y,side^1) : false;
+}
+/* その手を指したあと、自分の玉が取られる形になるか。
+   盤を複製せずに置いて調べて戻す（候補すべてに掛けるので軽くしたい）。 */
+function leavesKingTaken(st,m){
+  const me=st.t;
+  const capd=st.b[m.to.y][m.to.x];
+  const moved=m.drop? null : st.b[m.from.y][m.from.x];
+  if(m.drop) st.b[m.to.y][m.to.x]={t:m.drop,s:me,p:false};
+  else{
+    st.b[m.from.y][m.from.x]=null;
+    st.b[m.to.y][m.to.x]={t:moved.t,s:moved.s,p:moved.p||!!m.promote};
+  }
+  const k=kingSq(st,me);
+  const bad = k? attackedBy(st,k.x,k.y,me^1) : false;
+  if(m.drop) st.b[m.to.y][m.to.x]=capd||null;
+  else{ st.b[m.from.y][m.from.x]=moved; st.b[m.to.y][m.to.x]=capd||null; }
+  return bad;
 }
 /* ==================== 棋譜の表記 ==================== */
 function moveInfo(st,m,prevTo){
@@ -537,6 +565,7 @@ function suggest(st,opt){
   }
   const sg=me===0?1:-1;
   const early=(opt.ply||0)<26;
+  const checked=inCheck(st,me);        // いま王手をかけられているか
 
   // 一次採点（軽い）
   let scored=list.map(m=>{
@@ -558,10 +587,16 @@ function suggest(st,opt){
       s+=(m.from.y-m.to.y)*sg*3;                     // 前に進む
       const hv=hanging[m.from.x+","+m.from.y];
       if(hv) s+=hv*2.5;                              // 取られそうな駒を逃がす
-      if(t==="OU") s+= early? 3 : -8;
+      if(t==="OU") s+= checked? 26 : (early? 3 : -8); // 王手されていれば玉が逃げるのが自然
       if(t==="FU"&&early) s+=4;
     }
-    return {m,t,s};
+    /* 自分の玉が取られる形になる手は大きく下げる。
+       王手を放置した手や、王手されているのに関係ない所を動かす手を
+       候補の上に出さないため。消さずに残すのは、実際にそう指した
+       対局を記録できるようにするため（盤から入れれば書ける）。 */
+    const risky=leavesKingTaken(st,m);
+    if(risky) s-=900;
+    return {m,t,s,risky};
   });
   scored.sort((a,b)=>b.s-a.s);
 
@@ -587,15 +622,18 @@ function suggest(st,opt){
   }
   top.sort((a,b)=>b.s-a.s);
 
-  // 同じ駒ばかり並ばないように、ひとつの駒からは2手まで
-  const out=[], used={};
+  /* 並べかた。玉が取られる手は必ず後ろに回す。
+     同じ駒ばかり並ばないよう1つの駒から2手までにするが、
+     その制限で危ない手が繰り上がっては本末転倒なので、
+     はじかれた安全な手を先に足してから危ない手を足す。 */
+  const first=[], rest=[], risky=[], used={};
   for(const e of top){
+    if(e.risky){ risky.push(e.m); continue; }
     const k=e.m.drop? "d"+e.m.drop : e.m.from.x+","+e.m.from.y;
     used[k]=(used[k]||0)+1;
-    if(used[k]>2)continue;
-    out.push(e.m);
+    (used[k]>2? rest : first).push(e.m);
   }
-  return out.slice(0,opt.limit||12);
+  return first.concat(rest,risky).slice(0,opt.limit||12);
 }
 /* ==================== 状態 ==================== */
 let games=[], curId=null, lastMyName="";  // 棋譜の一覧と、いま開いている棋譜と、自分の名前
@@ -890,18 +928,33 @@ function renderSuggest(){
     el.appendChild(box);
     return;
   }
+  /* 玉が取られる手（王手放置など）は安全な手と同じページに混ぜない。
+     消しはしないので「他の手」か盤から入れられる。 */
+  let safeN=0;
+  while(safeN<sgCache.length && !leavesKingTaken(st,sgCache[safeN])) safeN++;
+  const per=3, pages=[];
+  for(let i=0;i<safeN;i+=per)               pages.push(sgCache.slice(i,Math.min(i+per,safeN)));
+  for(let i=safeN;i<sgCache.length;i+=per)  pages.push(sgCache.slice(i,i+per));
+
   const lab=document.createElement("div"); lab.className="sg-label";
   const sub=document.createElement("span"); sub.className="sg-sub";
   sub.textContent=sgCache.length? (idx+1)+"手目　この手だった？" : "動かせる手がありません";
   lab.appendChild(sub);
+  if(inCheck(st,st.t)){
+    const w=document.createElement("span"); w.className="sg-warn"; w.textContent="王手されています";
+    lab.appendChild(w);
+  }
+  const page=pages.length? sgPage%pages.length : 0;
+  if(pages.length && page>=Math.ceil(safeN/per) && safeN>0){
+    const w=document.createElement("span"); w.className="sg-warn"; w.textContent="玉を取られる手";
+    lab.appendChild(w);
+  }
   el.appendChild(lab);
   if(!sgCache.length) return;
 
   const row=document.createElement("div"); row.className="sg-row";
-  const per=3, pages=Math.ceil(sgCache.length/per);
-  const page=sgPage%pages;
-  for(let i=page*per;i<Math.min(sgCache.length,page*per+per);i++) row.appendChild(sgButton(st,sgCache[i]));
-  if(pages>1){
+  for(const m of pages[page]) row.appendChild(sgButton(st,m));
+  if(pages.length>1){
     const more=document.createElement("button"); more.className="sg-more";
     more.innerHTML="他の<br>手";
     more.onclick=()=>{ sgPage++; renderSuggest(); };
