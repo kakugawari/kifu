@@ -44,6 +44,15 @@ body{
 }
 header{display:flex;align-items:center;gap:.6em;padding:7px 12px 3px;flex:0 0 auto}
 h1{font-size:16px;margin:0;letter-spacing:.2em;font-weight:600}
+/* 題を押すと棋譜の窓が開く。押せると分かるように枠と ▾ を付ける */
+#openNote{
+  display:flex;align-items:center;gap:5px;font-family:inherit;color:var(--sumi);
+  padding:3px 9px 4px;margin-left:-4px;border-radius:3px;
+  border:1px solid var(--kami2);background:rgba(150,120,80,.055);
+}
+#openNote .cue{font-size:10px;color:var(--usu);line-height:1;font-family:system-ui,sans-serif}
+/* まだ埋めていない「？」があるときだけ朱の点を出して、開くきっかけにする */
+#openNote.has::after{content:"";width:5px;height:5px;border-radius:50%;background:var(--shu)}
 .tesuu{font-size:12px;color:var(--usu);letter-spacing:.1em;margin-left:auto;font-family:system-ui,sans-serif}
 .side-pick{display:flex;gap:4px;align-items:center}
 .sp-lab{font-size:11px;color:var(--usu);letter-spacing:.08em;margin-right:1px}
@@ -147,7 +156,8 @@ canvas{display:block;touch-action:manipulation}
 }
 .sg-row{display:flex;gap:6px;align-items:stretch}
 .sg{
-  flex:1;font-family:inherit;font-size:clamp(16px,2vh,19px);padding:clamp(9px,3vh,28px) 3px;border-radius:4px;min-width:0;
+  /* 棋譜の帯を窓に移したぶん、いちばん押すこのボタンを厚くしている */
+  flex:1;font-family:inherit;font-size:clamp(16px,2.1vh,20px);padding:clamp(9px,4.2vh,42px) 3px;border-radius:4px;min-width:0;
   border:2px solid var(--sumi);letter-spacing:.02em;
   box-shadow:0 2px 4px rgba(35,29,22,.22);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
@@ -192,27 +202,25 @@ canvas{display:block;touch-action:manipulation}
 
 /* ---- 棋譜用紙 ---- */
 #sheet{
-  flex:0 0 auto;height:clamp(56px,8vh,74px);margin:0;padding:3px 10px;
-  overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
-  scrollbar-width:none;                 /* 札の下に黒い線が出ないように */
-  background:rgba(150,120,80,.055);
-  border-bottom:1px solid var(--kami2); /* 記録の帯として下の操作から切り離す */
+  /* 窓の中では横に流さず折り返す。対局まるごとを一度に見わたせる */
+  flex:1 1 auto;min-height:0;margin:0;padding:10px 12px 4px;
+  overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
 }
 #sheet::-webkit-scrollbar{display:none}
-#list{display:flex;gap:0;height:100%;align-items:stretch}
-#list::after{content:"";flex:0 0 10px}   /* 最後の札が右端に貼り付かないように */
+/* 一行はいつも4つ。偶数なので先手と後手が縦にそろい、対局の流れを追いやすい。
+   画面が広くても増やさない（増やすと段によって先手後手が入れ替わる） */
+#list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;
+  background:var(--kami2);border:1px solid var(--kami2)}
 .cell{
-  flex:0 0 auto;                                  /* 手数が増えても札を縮めない（横に流す） */
-  min-width:clamp(58px,9vw,76px);
-  border:0;border-right:1px solid var(--kami2);   /* 既定のボーダーが上下に出るので一度消す */
+  border:0;min-height:48px;overflow:hidden;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:3px 4px;background:transparent;font-family:inherit;color:var(--sumi);
+  padding:3px 2px;background:var(--haikei);font-family:inherit;color:var(--sumi);
 }
-.cell:first-child{border-left:1px solid var(--kami2)}
 .cell .num{font-size:9px;color:var(--usu);font-family:system-ui,sans-serif;line-height:1}
-.cell .mv{font-size:clamp(15px,1.9vh,18px);margin-top:2px;white-space:nowrap;line-height:1.15}
+.cell .mv{font-size:15px;margin-top:2px;white-space:nowrap;line-height:1.15}
 .cell .frm{font-size:8.5px;color:var(--usu);font-family:system-ui,sans-serif;margin-top:0;line-height:1.1}
-.cell .mv .mk{font-size:13px;vertical-align:1px;margin-right:1px}
+.cell .mv .mk{font-size:12px;vertical-align:1px;margin-right:1px}
 .cell.gote{background:#FFFFFF}                       /* 後手＝白 */
 .cell .mv .mk{color:var(--sumi)}
 .cell.hole{background:rgba(178,58,46,.06)}
@@ -223,13 +231,21 @@ canvas{display:block;touch-action:manipulation}
 .cell.sel{background:var(--sumi)}
 .cell.sel .mv,.cell.sel .num,.cell.sel .frm{color:var(--kami)}
 .cell.editing{outline:2px solid var(--shu);outline-offset:-2px}
-.sheet-empty{font-size:12px;color:var(--usu);letter-spacing:.1em;align-self:center;padding-left:4px}
+.sheet-empty{font-size:12.5px;color:var(--usu);letter-spacing:.1em;padding:22px 4px;text-align:center;grid-column:1/-1;background:var(--haikei)}
 
-#cardbar{flex:0 0 auto;display:none;gap:5px;padding:2px 10px 4px}
+#cardbar{flex:0 0 auto;display:none;gap:5px;padding:8px 12px 2px}
 #cardbar.on{display:flex}
 #cardbar button{flex:1;font-family:inherit;font-size:12px;padding:8px 0;border:1px solid var(--koma-e);background:transparent;border-radius:2px;color:var(--sumi)}
 #cardbar button.del{color:var(--shu);border-color:var(--shu)}
 #cardbar button:disabled{opacity:.32}
+/* 窓の下段。保存と一覧はここに移した（盤の下は「戻る」「？」だけにする） */
+#ntbar{flex:0 0 auto;display:flex;gap:6px;padding:10px 12px 12px}
+#ntbar button{
+  flex:1;font-family:inherit;font-size:15px;letter-spacing:.1em;padding:12px 0;border-radius:2px;
+  border:1px solid var(--koma-e);background:var(--koma);color:var(--sumi);
+}
+.nt-n{font-size:11.5px!important;color:var(--usu);letter-spacing:.06em!important;
+  font-family:system-ui,sans-serif;margin-left:8px}
 
 /* ---- 棋譜の一覧 ---- */
 .sheet3{background:var(--haikei);width:min(420px,94vw);max-height:86vh;border-radius:3px;display:flex;flex-direction:column;overflow:hidden}
@@ -285,7 +301,8 @@ canvas{display:block;touch-action:manipulation}
 </head>
 <body>
 <header>
-  <h1>棋譜ノート</h1>
+  <!-- ここを押すと、書いた手と保存・一覧をまとめた窓が開く -->
+  <button id="openNote"><h1>棋譜ノート</h1><span class="cue">▾</span></button>
   <div class="side-pick">
     <span class="sp-lab">自分</span>
     <button id="mySen" class="on">先手</button>
@@ -293,14 +310,6 @@ canvas{display:block;touch-action:manipulation}
   </div>
   <div class="tesuu" id="tesuu">0手</div>
 </header>
-
-<div id="sheet"><div id="list"></div></div>
-<div id="cardbar">
-  <button id="cFix">訂正</button>
-  <button id="cIns">前に一手</button>
-  <button id="cHole">？に戻す</button>
-  <button id="cDel" class="del">削除</button>
-</div>
 
 <div id="stage">
   <div id="boardwrap">
@@ -318,9 +327,23 @@ canvas{display:block;touch-action:manipulation}
 <div id="bar">
   <button id="bUndo">戻る</button>
   <button id="bHole" class="q">？</button>
-  <button id="bKif">保存</button>
-  <button id="bList">一覧</button>
 </div>
+
+<!-- 書いた手・訂正・保存・一覧をまとめた窓。ふだんは閉じて盤を広く使う -->
+<div class="modal" id="note"><div class="sheet3">
+  <div class="gl-head"><span>棋譜</span><span class="nt-n" id="ntN"></span><button id="ntClose">閉じる</button></div>
+  <div id="sheet"><div id="list"></div></div>
+  <div id="cardbar">
+    <button id="cFix">訂正</button>
+    <button id="cIns">前に一手</button>
+    <button id="cHole">？に戻す</button>
+    <button id="cDel" class="del">削除</button>
+  </div>
+  <div id="ntbar">
+    <button id="bKif">保存</button>
+    <button id="bList">一覧</button>
+  </div>
+</div></div>
 
 <div class="modal" id="promo"><div class="sheet2">
   <p id="promoText">成りますか？</p>
@@ -887,9 +910,11 @@ function renderSheet(){
     el.appendChild(c);
   });
   const sh=$("sheet");
-  if(editIdx<0) requestAnimationFrame(()=>{sh.scrollLeft=sh.scrollWidth;});
-  else requestAnimationFrame(()=>{const c=el.children[editIdx]; if(c)c.scrollIntoView({block:"nearest",inline:"center"});});
+  // 開いたときは最後の手が見えているところから。訂正中はその札を見せる
+  if(editIdx<0) requestAnimationFrame(()=>{sh.scrollTop=sh.scrollHeight;});
+  else requestAnimationFrame(()=>{const c=el.children[editIdx]; if(c)c.scrollIntoView({block:"nearest"});});
   $("cardbar").classList.toggle("on",selCard>=0&&editIdx<0);
+  $("ntN").textContent=R.info.length? R.info.length+"手" : "";
 }
 let sgCache=[];
 /* 対局者の名札。位置（上＝相手／下＝自分）と塗りで手番を示す */
@@ -1028,6 +1053,8 @@ function render(){
   renderSheet(); renderTurn(); renderSuggest();
   layout(); draw();
   $("tesuu").textContent=moves.length+"手";
+  // 埋めていない「？」や指せない手が残っていれば、題の横に朱の点を出す
+  $("openNote").classList.toggle("has",R.info.some(i=>i.hole||i.bad));
   $("banner").classList.toggle("on",editIdx>=0);
   if(editIdx>=0) $("bantext").textContent=(editIdx+1)+"手目を入れています";
   $("bUndo").disabled=moves.length===0||editIdx>=0;
@@ -1085,17 +1112,23 @@ $("bUndo").onclick=()=>{ if(!moves.length)return; moves.pop(); resetSel(); rende
 $("bHole").onclick=()=>{
   if(R.over>=0){ return toast("玉を取ったのでここまでです"); }
   moves.push({k:"hole"}); resetSel();
-  toast("後で埋められます。上の「？」の札を押してください"); render();
+  toast("後で埋められます。題の「棋譜ノート」を押して「？」の札から"); render();
 };
+/* 棋譜の窓。開け閉め。訂正に入るときは盤を使うので必ず閉じる */
+function openNote(){ hideToast(); save(); render(); $("note").classList.add("on"); }
+function closeNote(){ selCard=-1; $("note").classList.remove("on"); render(); }
+$("openNote").onclick=openNote;
+$("ntClose").onclick=closeNote;
+$("note").onclick=e=>{ if(e.target===$("note")) closeNote(); };   // 外側を押しても閉じる
 $("banstop").onclick=()=>{ editIdx=-1; resetSel(); render(); };
-$("cFix").onclick=()=>{ editIdx=selCard; selCard=-1; resetSel(); render(); };
-$("cIns").onclick=()=>{ moves.splice(selCard,0,{k:"hole"}); editIdx=selCard; selCard=-1; resetSel(); render(); };
-$("cHole").onclick=()=>{ moves[selCard]={k:"hole"}; editIdx=selCard; selCard=-1; resetSel(); render(); };
+$("cFix").onclick=()=>{ editIdx=selCard; selCard=-1; resetSel(); closeNote(); };
+$("cIns").onclick=()=>{ moves.splice(selCard,0,{k:"hole"}); editIdx=selCard; selCard=-1; resetSel(); closeNote(); };
+$("cHole").onclick=()=>{ moves[selCard]={k:"hole"}; editIdx=selCard; selCard=-1; resetSel(); closeNote(); };
 $("cDel").onclick=()=>{
   const i=selCard;
   if(i<moves.length-1){
     askModal("この手を削除すると、以降の手が一手ずつずれます。",[
-      {t:"「？」に戻す　推奨",cls:"p",fn:()=>{ moves[i]={k:"hole"}; editIdx=i; selCard=-1; resetSel(); render(); }},
+      {t:"「？」に戻す　推奨",cls:"p",fn:()=>{ moves[i]={k:"hole"}; editIdx=i; resetSel(); closeNote(); }},
       {t:"そのまま削除",fn:()=>{ moves.splice(i,1); selCard=-1; resetSel(); render(); }},
       {t:"中止",cls:"ghost",fn:null}
     ]);
@@ -1216,7 +1249,7 @@ function closeNameEdit(keep){
 }
 $("nmOk").onclick=()=>closeNameEdit(true);
 $("nmNo").onclick=()=>closeNameEdit(false);
-$("bList").onclick=()=>{ hideToast(); save(); renderGameList(); $("glist").classList.add("on"); };
+$("bList").onclick=()=>{ hideToast(); save(); closeNote(); renderGameList(); $("glist").classList.add("on"); };
 $("glClose").onclick=()=>$("glist").classList.remove("on");
 $("glNew").onclick=startNewGame;
 
@@ -1297,6 +1330,7 @@ $("bKif").onclick=()=>{
   const hole=chk.findIndex(i=>i.hole), bad=chk.findIndex(i=>i.bad);
   if(hole>=0) return toast((hole+1)+"手目が「？」のままです。埋めてから保存できます");
   if(bad>=0)  return toast((bad+1)+"手目が指せない手になっています。札を押して訂正してください");
+  closeNote();
   askResult(()=>doExport());
 };
 /* ==================== 保存・音 ==================== */
