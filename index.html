@@ -86,6 +86,9 @@ canvas{display:block;touch-action:manipulation}
 /* 見るだけのときは桃色にする。直すこと（朱）と見るだけ、を色で分ける */
 #banner.look{border-left-color:var(--momo);background:rgba(224,98,138,.09)}
 #banner.look button{border-color:var(--momo);color:var(--sumi)}
+/* 見るだけモードでは戻る・？ボタンを隠し、バナーを拡張する */
+#banner.look ~ #bar{display:none}
+#banner.look{padding:clamp(20px,6vh,60px) 10px;font-size:14px;line-height:1.8}
 
 /* ---- 対局者の名札。盤の上が相手、下が自分。指すほうを塗る ---- */
 .turnbar{
