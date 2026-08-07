@@ -83,6 +83,9 @@ canvas{display:block;touch-action:manipulation}
 }
 #banner.on{display:flex}
 #banner button{margin-left:auto;font-family:inherit;font-size:11px;padding:3px 9px;border:1px solid var(--shu);background:transparent;color:var(--shu);border-radius:2px}
+/* 見るだけのときは桃色にする。直すこと（朱）と見るだけ、を色で分ける */
+#banner.look{border-left-color:var(--momo);background:rgba(224,98,138,.09)}
+#banner.look button{border-color:var(--momo);color:var(--sumi)}
 
 /* ---- 対局者の名札。盤の上が相手、下が自分。指すほうを塗る ---- */
 .turnbar{
@@ -231,9 +234,17 @@ canvas{display:block;touch-action:manipulation}
 .cell.sel{background:var(--sumi)}
 .cell.sel .mv,.cell.sel .num,.cell.sel .frm{color:var(--kami)}
 .cell.editing{outline:2px solid var(--shu);outline-offset:-2px}
+.cell.looking{outline:2px solid var(--momo);outline-offset:-2px}   /* いま盤に出している手 */
 .sheet-empty{font-size:12.5px;color:var(--usu);letter-spacing:.1em;padding:22px 4px;text-align:center;grid-column:1/-1;background:var(--haikei)}
 
-#cardbar{flex:0 0 auto;display:none;gap:5px;padding:8px 12px 2px}
+/* 札を選んだときだけ出る。4つの横に足すと狭い画面で窮屈なので一段上に置く */
+#cLook{
+  flex:0 0 auto;display:none;font-family:inherit;font-size:13px;letter-spacing:.08em;
+  margin:8px 12px 0;padding:9px 0;border-radius:2px;
+  border:1px solid var(--momo);background:rgba(224,98,138,.10);color:var(--sumi);
+}
+#cLook.on{display:block}
+#cardbar{flex:0 0 auto;display:none;gap:5px;padding:6px 12px 2px}
 #cardbar.on{display:flex}
 #cardbar button{flex:1;font-family:inherit;font-size:12px;padding:8px 0;border:1px solid var(--koma-e);background:transparent;border-radius:2px;color:var(--sumi)}
 #cardbar button.del{color:var(--shu);border-color:var(--shu)}
@@ -333,6 +344,7 @@ canvas{display:block;touch-action:manipulation}
 <div class="modal" id="note"><div class="sheet3">
   <div class="gl-head"><span>棋譜</span><span class="nt-n" id="ntN"></span><button id="ntClose">閉じる</button></div>
   <div id="sheet"><div id="list"></div></div>
+  <button id="cLook">この局面を見る</button>
   <div id="cardbar">
     <button id="cFix">訂正</button>
     <button id="cIns">前に一手</button>
@@ -675,6 +687,7 @@ function suggest(st,opt){
 let games=[], curId=null, lastMyName="";  // 棋譜の一覧と、いま開いている棋譜と、自分の名前
 let moves=[], mySide=0, result=null;      // いま開いている棋譜の中身
 let editIdx=-1, selCard=-1, sel=null, selDrop=null, pending=null;
+let viewAt=-1;   // 見るだけの状態。◯手指したあとの局面を盤に出す（-1＝最新）
 let sgPage=0, curDests=[];
 let R={pos:[initState()],info:[]};
 
@@ -691,7 +704,8 @@ function replay(){
   }
   return {pos,info,over,winner};
 }
-const viewIdx=()=> editIdx>=0? editIdx : moves.length;
+/* 盤に出す手数。訂正中はその手前、見るだけのときはその手まで、ふだんは最新 */
+const viewIdx=()=> editIdx>=0? editIdx : (viewAt>=0? viewAt : moves.length);
 const view=()=> R.pos[viewIdx()];
 function lastTo(){
   const vi=viewIdx(); if(vi===0)return null;
@@ -894,7 +908,7 @@ function renderSheet(){
   }
   R.info.forEach((inf,i)=>{
     const c=document.createElement("button");
-    c.className="cell"+(selCard===i?" sel":"")+(editIdx===i?" editing":"");
+    c.className="cell"+(selCard===i?" sel":"")+(editIdx===i?" editing":"")+(viewAt===i+1?" looking":"");
     const num=document.createElement("span"); num.className="num"; num.textContent=(i+1); c.appendChild(num);
     const mv=document.createElement("span"); mv.className="mv";
     if(inf.after){ mv.textContent="—"; c.classList.add("after"); }
@@ -913,7 +927,10 @@ function renderSheet(){
   // 開いたときは最後の手が見えているところから。訂正中はその札を見せる
   if(editIdx<0) requestAnimationFrame(()=>{sh.scrollTop=sh.scrollHeight;});
   else requestAnimationFrame(()=>{const c=el.children[editIdx]; if(c)c.scrollIntoView({block:"nearest"});});
-  $("cardbar").classList.toggle("on",selCard>=0&&editIdx<0);
+  const pick=selCard>=0&&editIdx<0;
+  $("cardbar").classList.toggle("on",pick);
+  // 「？」や指せない手の局面は出しても意味がないので、その札では出さない
+  $("cLook").classList.toggle("on",pick&&!!R.info[selCard]&&!R.info[selCard].hole&&!R.info[selCard].bad);
   $("ntN").textContent=R.info.length? R.info.length+"手" : "";
 }
 let sgCache=[];
@@ -936,7 +953,7 @@ function renderTurn(){
       const n=st.h[side][t]||0; if(!n)continue;
       const b=document.createElement("button");
       b.className="hk"+(side===(mySide^1)?" g":"")+(selDrop&&selDrop.s===side&&selDrop.t===t?" sel":"");
-      b.disabled = st.t!==side;                       // 手番でないほうは押せない
+      b.disabled = st.t!==side||viewAt>=0;            // 手番でないほう・見るだけのときは押せない
       const pc=document.createElement("span"); pc.className="p";
       const c=document.createElement("span"); c.className="c"; c.textContent=NM[t];
       pc.appendChild(c); b.appendChild(pc);
@@ -953,6 +970,7 @@ function renderTurn(){
 }
 function renderSuggest(){
   const el=$("suggest"); el.innerHTML="";
+  if(viewAt>=0) return;                    // 過去の局面を見ているときは入力させない
   const st=view(), idx=viewIdx();
   // 定跡がまだ効くか
   const keys=[]; let bookable=true;
@@ -1047,6 +1065,8 @@ function recomputeDests(){
 function render(){
   R=replay();
   if(editIdx>=moves.length) editIdx=-1;
+  if(viewAt>moves.length||viewAt===0) viewAt=-1;   // 手を消したあとなど
+  if(editIdx>=0) viewAt=-1;                        // 訂正と見るだけは同時に立たない
   // 玉を取って終わったなら、結果を先に入れておく（保存のときに変えられる）
   if(R.over>=0&&result===null) result=(R.winner===mySide)?"win":"lose";
   recomputeDests();
@@ -1055,10 +1075,12 @@ function render(){
   $("tesuu").textContent=moves.length+"手";
   // 埋めていない「？」や指せない手が残っていれば、題の横に朱の点を出す
   $("openNote").classList.toggle("has",R.info.some(i=>i.hole||i.bad));
-  $("banner").classList.toggle("on",editIdx>=0);
-  if(editIdx>=0) $("bantext").textContent=(editIdx+1)+"手目を入れています";
-  $("bUndo").disabled=moves.length===0||editIdx>=0;
-  $("bHole").disabled=editIdx>=0;
+  $("banner").classList.toggle("on",editIdx>=0||viewAt>=0);
+  $("banner").classList.toggle("look",viewAt>=0);
+  if(editIdx>=0){ $("bantext").textContent=(editIdx+1)+"手目を入れています"; $("banstop").textContent="中止"; }
+  else if(viewAt>=0){ $("bantext").textContent=viewAt+"手目の局面を見ています"; $("banstop").textContent="最新へ"; }
+  $("bUndo").disabled=moves.length===0||editIdx>=0||viewAt>=0;
+  $("bHole").disabled=editIdx>=0||viewAt>=0;
   $("cHole").disabled=selCard>=0&&moves[selCard]&&moves[selCard].k==="hole";
   $("mySen").classList.toggle("on",mySide===0);
   $("myGo").classList.toggle("on",mySide===1);
@@ -1066,6 +1088,7 @@ function render(){
 }
 /* ==================== 入力 ==================== */
 function commit(m){
+  viewAt=-1;
   if(R.over>=0&&editIdx<0){ toast("玉を取ったのでここまでです"); return; }
   const st=view();
   if(!isLegal(st,m)){ toast("その手はここでは指せません"); return; }
@@ -1075,6 +1098,7 @@ function commit(m){
   render();
 }
 cv.addEventListener("click",e=>{
+  if(viewAt>=0) return toast("「最新へ」を押すと続きが書けます");
   const r=cv.getBoundingClientRect();
   const px=e.clientX-r.left, py=e.clientY-r.top;
   const st=view();
@@ -1120,8 +1144,10 @@ function closeNote(){ selCard=-1; $("note").classList.remove("on"); render(); }
 $("openNote").onclick=openNote;
 $("ntClose").onclick=closeNote;
 $("note").onclick=e=>{ if(e.target===$("note")) closeNote(); };   // 外側を押しても閉じる
-$("banstop").onclick=()=>{ editIdx=-1; resetSel(); render(); };
-$("cFix").onclick=()=>{ editIdx=selCard; selCard=-1; resetSel(); closeNote(); };
+$("banstop").onclick=()=>{ if(viewAt>=0) viewAt=-1; else editIdx=-1; resetSel(); render(); };
+/* 選んだ札の局面を盤に出す。窓を閉じないと盤が見えないので閉じる */
+$("cLook").onclick=()=>{ viewAt=selCard+1; resetSel(); closeNote(); };
+$("cFix").onclick=()=>{ editIdx=selCard; selCard=-1; viewAt=-1; resetSel(); closeNote(); };
 $("cIns").onclick=()=>{ moves.splice(selCard,0,{k:"hole"}); editIdx=selCard; selCard=-1; resetSel(); closeNote(); };
 $("cHole").onclick=()=>{ moves[selCard]={k:"hole"}; editIdx=selCard; selCard=-1; resetSel(); closeNote(); };
 $("cDel").onclick=()=>{
@@ -1173,7 +1199,7 @@ function pullGame(){ const g=curGame(); if(!g)return; moves=g.moves; mySide=g.my
 function openGame(id){
   save();                       // いまの棋譜を確定させてから切り替える
   curId=id; pullGame();
-  editIdx=-1; selCard=-1; resetSel();
+  editIdx=-1; selCard=-1; viewAt=-1; resetSel();
   $("glist").classList.remove("on");
   render();
 }
@@ -1182,7 +1208,7 @@ function deleteGame(id){
   const i=games.findIndex(g=>g.id===id); if(i<0)return;
   games.splice(i,1);
   if(!games.length) games.push(newGame());
-  if(id===curId){ curId=games[0].id; pullGame(); editIdx=-1; selCard=-1; resetSel(); }
+  if(id===curId){ curId=games[0].id; pullGame(); editIdx=-1; selCard=-1; viewAt=-1; resetSel(); }
   save(); renderGameList(); render();
 }
 function fmtDate(ts){
